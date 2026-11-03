@@ -1,4 +1,4 @@
-# @shypie/dsh-privacy-gate
+# @shypie_privacy/dsh-privacy-gate
 
 A DeepSeek Harness **Host bundle** that keeps PII on this machine. It masks at
 **ingestion**, because DSH's outbound request is a deep-frozen fold of the session
@@ -50,7 +50,7 @@ so no dependencies are declared. Do **not** hand-edit the profile's
 installs — run the script.
 
 Once published to npm the same bundle installs by name —
-`dsh plugin --profile <name> add @shypie/dsh-privacy-gate` — with the `vendor/`
+`dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` — with the `vendor/`
 copy already inside the package. `engines.dsh` is `>=0.2.0 <0.3.0`
 ([docs/publish.md](../../docs/publish.md)).
 

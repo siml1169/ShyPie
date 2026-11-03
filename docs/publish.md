@@ -6,19 +6,21 @@ and [`marketplace/`](../marketplace) holds the two submission files ready to cop
 
 | Artifact | npm package | Directory | Marketplace |
 |---|---|---|---|
-| PII core | `@shypie/pii-core` | [`packages/pii-core`](../packages/pii-core) | library only |
-| Local extractor | `@shypie/local-extract` | [`packages/local-extract`](../packages/local-extract) | library only |
-| DSH bundle | `@shypie/dsh-privacy-gate` | [`plugins/dsh-privacy-gate`](../plugins/dsh-privacy-gate) | awesome-dsh-plugin → dsh-market |
-| Magpie middleware | `@shypie/magpie-privacy-gate` | [`plugins/magpie-privacy-gate`](../plugins/magpie-privacy-gate) | magpie-community registry |
+| PII core | `@shypie_privacy/pii-core` | [`packages/pii-core`](../packages/pii-core) | library only |
+| Local extractor | `@shypie_privacy/local-extract` | [`packages/local-extract`](../packages/local-extract) | library only |
+| DSH bundle | `@shypie_privacy/dsh-privacy-gate` | [`plugins/dsh-privacy-gate`](../plugins/dsh-privacy-gate) | awesome-dsh-plugin → dsh-market |
+| Magpie middleware | `@shypie_privacy/magpie-privacy-gate` | [`plugins/magpie-privacy-gate`](../plugins/magpie-privacy-gate) | magpie-community registry |
 
 ## 0. Prerequisites for the first publish
 
-1. **Own the `shypie` npm scope.** A scoped package can only be published by a member of the
-   matching npm org (`npm org create shypie` once, as the owner). If the scope stays unavailable,
-   change `name`, `repository.directory` stays as is, and every `@shypie/` reference in the docs and
-   in `plugins/dsh-privacy-gate/cordis.patch.yml` must move with it — the patch row references the
+1. **Publish under the `@shypie_privacy` scope.** The npm org `shypie_privacy` exists and `siml1169`
+   is its owner; a scoped package can only be published by a member of the matching org. If the
+   scope ever has to change again, the four `name` fields, the `cordis.patch.yml` row and every
+   `@shypie_privacy/` reference in the docs must move together — the patch row references the
    package **by name**.
-2. **Log in:** `npm login`, then `npm whoami` must print your user.
+2. **2FA.** npm refuses a publish from an account without 2FA unless the token has *bypass 2FA*;
+   `siml1169` has `auth-and-writes` enabled, so every `npm publish` needs a one-time password —
+   `--otp=<code>`, or answer npm's prompt.
 3. **Check what would ship** before each first publish: `npm pack --dry-run` in the package
    directory. The `files` allowlists are already tight (no tests, no fixtures, no key material).
 4. `publishConfig.access` is `public` in all four manifests, so no `--access public` flag is needed.
@@ -28,18 +30,21 @@ and [`marketplace/`](../marketplace) holds the two submission files ready to cop
 The libraries first, so the marketplace entries can point at versions that already exist:
 
 ```bash
-cd packages/pii-core        && npm publish
-cd ../local-extract         && npm publish
-cd ../../plugins/magpie-privacy-gate && npm publish
-cd ../dsh-privacy-gate      && npm publish
+cd packages/pii-core        && npm publish --otp=<code>
+cd ../local-extract         && npm publish --otp=<code>
+cd ../../plugins/magpie-privacy-gate && npm publish --otp=<code>
+cd ../dsh-privacy-gate      && npm publish --otp=<code>
 ```
+
+A one-time password is valid for 30 seconds, so run one package per code — or drop `--otp` and let
+npm prompt after each upload starts.
 
 Verify each one:
 
 ```bash
-npm view @shypie/pii-core version
-npm view @shypie/magpie-privacy-gate magpie.middleware
-npm view @shypie/dsh-privacy-gate dsh.bundle.patch
+npm view @shypie_privacy/pii-core version
+npm view @shypie_privacy/magpie-privacy-gate magpie.middleware
+npm view @shypie_privacy/dsh-privacy-gate dsh.bundle.patch
 ```
 
 Then tag the repository (one tag for the coordinated 0.1.0 release):
@@ -53,7 +58,7 @@ git tag -a v0.1.0 -m "ShyPie 0.1.0" && git push origin v0.1.0
 Install from npm once published (the plugin name is the package name):
 
 ```bash
-magpie plugin add @shypie/magpie-privacy-gate
+magpie plugin add @shypie_privacy/magpie-privacy-gate
 magpie plugin options privacy-gate '{ … }'   # same JSON as config/magpie-gate.options.json
 magpie plugin                                 # listed, middleware only
 ```
@@ -78,7 +83,7 @@ requires a `package.json` at the repository root and this is a monorepo.
 Install from npm once published:
 
 ```bash
-dsh plugin --profile <name> add @shypie/dsh-privacy-gate
+dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 ```
 
 `engines.dsh` is `>=0.2.0 <0.3.0` (verified against `0.2.1-rc.5`). Widen it only after testing the
@@ -104,9 +109,9 @@ the same data feeds `dsh-market` and the `Plugins → Discover` index sources.
 
 ## 4. After the first publish
 
-- [ ] `magpie plugin add @shypie/magpie-privacy-gate` loads, is listed, and shows hook counts after a
+- [ ] `magpie plugin add @shypie_privacy/magpie-privacy-gate` loads, is listed, and shows hook counts after a
       request (Settings → Plugins).
-- [ ] `dsh plugin --profile <name> add @shypie/dsh-privacy-gate` appends the bundle to
+- [ ] `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` appends the bundle to
       `dsh.profile.bundles` and the patch row activates in a new session.
 - [ ] Both listings render with the MIT license from [`LICENSE`](../LICENSE).
 - [ ] Re-check the `files` allowlists after any layout change: `npm pack --dry-run`.

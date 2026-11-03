@@ -34,7 +34,7 @@ magpie plugin                                    # the plugin is listed; it is m
 ```
 
 From npm (not published yet — [docs/publish.md](../../docs/publish.md)) the same plugin is
-`magpie plugin add @shypie/magpie-privacy-gate`; the package name is what the registry entry in
+`magpie plugin add @shypie_privacy/magpie-privacy-gate`; the package name is what the registry entry in
 [`marketplace/magpie/registry-entry.json`](../../marketplace/magpie/registry-entry.json) lists.
 
 Also make sure the built-in **Gateway middleware** plugin is on: Settings → Plugins → Built-in →
@@ -69,7 +69,7 @@ magpie plugin options magpie-privacy-gate off     # clears them again
 
 The name can be the package's, its spec, or its short name
 (<https://usemagpie.ai/docs/plugins#middleware-options>). The package name is
-`@shypie/magpie-privacy-gate`; if `magpie-plugin` reports an unknown name, run `magpie plugin` and
+`@shypie_privacy/magpie-privacy-gate`; if `magpie-plugin` reports an unknown name, run `magpie plugin` and
 use the short name it prints (`magpie-privacy-gate`, or `privacy-gate` on magpie versions that strip
 the `magpie-` prefix — that spelling is **UNVERIFIED**, see [the hooks evidence](../../docs/research/magpie-hooks.md) §7).
 

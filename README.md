@@ -9,10 +9,10 @@ This repository is a reference implementation of a two-plugin combo for
 
 | Component | npm package | Role |
 |---|---|---|
-| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
-| [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate) | `@shypie/magpie-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
-| [`packages/pii-core`](packages/pii-core) | `@shypie/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
-| [`packages/local-extract`](packages/local-extract) | `@shypie/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
+| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
+| [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate) | `@shypie_privacy/magpie-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
+| [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
+| [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
 
 The two plugins are prepared for the **Magpie** and **DeepSeek Harness** plugin markets; they are
 not published yet. Package metadata, the MIT license, and both marketplace submission files are in
@@ -102,8 +102,8 @@ Nothing is published yet, so install from this checkout today:
 4. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
 
 Both plugins are reversible; no profile file is edited by hand. Once the packages are on npm, the
-same steps become `magpie plugin add @shypie/magpie-privacy-gate` and
-`dsh plugin --profile <name> add @shypie/dsh-privacy-gate`; [docs/publish.md](docs/publish.md) covers
+same steps become `magpie plugin add @shypie_privacy/magpie-privacy-gate` and
+`dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`; [docs/publish.md](docs/publish.md) covers
 that path and the two marketplace listings.
 
 ## Verify

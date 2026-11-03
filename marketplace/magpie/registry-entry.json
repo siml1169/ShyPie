@@ -1,5 +1,5 @@
 {
-  "package": "@shypie/magpie-privacy-gate",
+  "package": "@shypie_privacy/magpie-privacy-gate",
   "name": "ShyPie Privacy Gate",
   "kind": "middleware",
   "summary": {

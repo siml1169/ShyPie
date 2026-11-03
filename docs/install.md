@@ -40,7 +40,7 @@ The option names, defaults and their meaning are documented in
 [`plugins/magpie-privacy-gate/README.md`](../plugins/magpie-privacy-gate/README.md). A copy of the
 example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
-> Not published to npm yet: `magpie plugin add @shypie/magpie-privacy-gate` replaces the folder path
+> Not published to npm yet: `magpie plugin add @shypie_privacy/magpie-privacy-gate` replaces the folder path
 > once it is ([docs/publish.md](publish.md)). A folder is loaded where it is, so neither form copies
 > anything into the Magpie config directory.
 
@@ -73,7 +73,7 @@ Install the bundle **through the plugin manager**, never by editing the profile 
   `target: "$repo/plugins/dsh-privacy-gate"` (absolute path), or
 - install it from the Plugins page if the build exposes a folder install.
 
-Once the bundle is on npm, `dsh plugin --profile <name> add @shypie/dsh-privacy-gate` installs the
+Once the bundle is on npm, `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` installs the
 same bundle without a checkout; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older
 host refuses it instead of failing at load time.
 

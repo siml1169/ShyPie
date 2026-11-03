@@ -1,5 +1,5 @@
 /**
- * @shypie/pii-core/vault — Node-only encrypted placeholder vault.
+ * @shypie_privacy/pii-core/vault — Node-only encrypted placeholder vault.
  *
  * Contract: ShyPie/docs/interface-contract.md.
  *   createVault({ dir }) -> { put(token, kind, value), get(token), save(redactor),

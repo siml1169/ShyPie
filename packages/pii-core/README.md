@@ -1,4 +1,4 @@
-# @shypie/pii-core
+# @shypie_privacy/pii-core
 
 Deterministic, local-first PII detection + keyed placeholder masking shared by the DSH and Magpie
 privacy gates. **Zero npm dependencies, no I/O, no network.** `index.js` is plain ECMAScript so it can
@@ -10,7 +10,7 @@ Contract: `../../docs/interface-contract.md`. Detector evidence/checksums/scope:
 ## Install (local path only — no registry involved)
 
 ```json
-{ "dependencies": { "@shypie/pii-core": "file:../pii-core" } }
+{ "dependencies": { "@shypie_privacy/pii-core": "file:../pii-core" } }
 ```
 
 DSH does not need this: `plugins/dsh-privacy-gate/vendor/pii-core.js` is a generated copy of
@@ -21,8 +21,8 @@ DSH does not need this: `plugins/dsh-privacy-gate/vendor/pii-core.js` is a gener
 ```js
 import {
   VERSION, KINDS, createRedactor, tokenFor, findPlaceholders, isPlaceholderShaped,
-} from '@shypie/pii-core';
-import { createVault } from '@shypie/pii-core/vault';
+} from '@shypie_privacy/pii-core';
+import { createVault } from '@shypie_privacy/pii-core/vault';
 
 const redactor = createRedactor({
   key: 'session-key',          // REQUIRED: secret, per-session
@@ -61,7 +61,7 @@ save(redactor), load(redactor?), path, wipe() }`; AES-256-GCM, key file `0600`, 
   EMAIL > BIC > SSN > PASSPORT/IDCARD > PHONE > ADDRESS > ACCOUNT > DOB > PERSON`.
 - Out of deterministic scope (documented): free-text personal names (only `allowWords`), non-German
   VAT IDs, non-numeric/word-month DOB formats, addresses in non-German formats, images/OCR (that is
-  `@shypie/local-extract` + the gates).
+  `@shypie_privacy/local-extract` + the gates).
 
 ## Tests / performance
 

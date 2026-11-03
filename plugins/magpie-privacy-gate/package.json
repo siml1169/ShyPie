@@ -1,5 +1,5 @@
 {
-  "name": "@shypie/magpie-privacy-gate",
+  "name": "@shypie_privacy/magpie-privacy-gate",
   "version": "0.1.0",
   "type": "module",
   "description": "magpie gateway middleware: structural egress firewall. Blocks content parts magpie cannot mask (images, files, documents, audio, video) for models that are not allowlisted as local, blocks encoded blobs smuggled through text, enforces a model allowlist, and fails closed on anything it cannot inspect.",

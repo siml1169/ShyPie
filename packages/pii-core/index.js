@@ -1,5 +1,5 @@
 /**
- * @shypie/pii-core — deterministic local PII detectors + keyed placeholders.
+ * @shypie_privacy/pii-core — deterministic local PII detectors + keyed placeholders.
  *
  * Contract: ShyPie/docs/interface-contract.md. Public API:
  *   VERSION, KINDS, createRedactor(config), tokenFor(key, kind, value),

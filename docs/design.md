@@ -17,10 +17,10 @@ The workflow is a **combo of two plugins plus one shared core**:
 
 | Component | Runs in | Owns |
 |---|---|---|
-| `@shypie/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
-| `@shypie/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
-| `@shypie/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** redaction, local extraction tools, `read_image`/binary guards, rehydrate-into-artifact |
-| `@shypie/magpie-privacy-gate` | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist |
+| `@shypie_privacy/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
+| `@shypie_privacy/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
+| `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** redaction, local extraction tools, `read_image`/binary guards, rehydrate-into-artifact |
+| `@shypie_privacy/magpie-privacy-gate` | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist |
 
 The split is forced by one hard fact and covers two different gaps:
 
@@ -174,7 +174,7 @@ Three boundaries, three controls, no single point of failure:
 
 ## 6. Component specification
 
-### 6.1 `@shypie/pii-core` — detection and placeholders
+### 6.1 `@shypie_privacy/pii-core` — detection and placeholders
 
 Zero dependencies, plain JavaScript (no `node:` imports in the main entry, so the same module can be
 vendored into Magpie's moejs plugin). Full API and catalogue: `packages/pii-core/`,
@@ -214,7 +214,7 @@ cannot be resolved — `privacy_rehydrate` refuses it rather than guessing (fail
 carry `kind`, `length`, `count`, never a value — the reference implementation's `stats()` and journal
 cannot leak by construction.
 
-### 6.2 `@shypie/local-extract` — local conversion, fail closed
+### 6.2 `@shypie_privacy/local-extract` — local conversion, fail closed
 
 CLI contract in `interface-contract.md`; engine matrix measured on the reference machine in
 `research/local-extract-env.md`. It shells out only to local binaries and never to a network service.
@@ -250,7 +250,7 @@ stays tested.
 The important line is the failure column: **no cloud fallback exists in the code path.** If no local
 engine exists, the tool returns a blocked result and the agent has nothing to send.
 
-### 6.3 `@shypie/dsh-privacy-gate` — ingestion gate
+### 6.3 `@shypie_privacy/dsh-privacy-gate` — ingestion gate
 
 A DSH bundle (host plugin; installs through `plugin_manager` `install_bundle`, never by hand-editing
 the profile). Three gates and two tool families:
@@ -296,7 +296,7 @@ and writes real values to a local artifact, returning only `{path, replaced, kin
 fill a form or write a file without ever seeing the value. If the agent reads that artifact back,
 Gate 1 re-redacts it — the design is idempotent by construction.
 
-### 6.4 `@shypie/magpie-privacy-gate` — egress firewall
+### 6.4 `@shypie_privacy/magpie-privacy-gate` — egress firewall
 
 A Magpie gateway middleware plugin (`*.middleware.js`), plain JavaScript, no imports outside the
 plugin, no I/O — it runs in moejs inside the gateway process and is loaded on file change.
@@ -382,7 +382,7 @@ Every row is a path where data *would* move; the design's answer is in the last 
 # cordis.patch.yml of the bundle (installed with plugin_manager install_bundle)
 - insert:
     - id: privacy-gate
-      name: '@shypie/dsh-privacy-gate'
+      name: '@shypie_privacy/dsh-privacy-gate'
       config:
         # Replace <you> with your home directory; keep the paths absolute.
         allowPaths:

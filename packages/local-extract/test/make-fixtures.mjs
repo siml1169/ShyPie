@@ -1,4 +1,4 @@
-// Synthetic fixture generator for @shypie/local-extract.
+// Synthetic fixture generator for @shypie_privacy/local-extract.
 //
 // Everything here is generated locally and deterministically: hand-built minimal
 // PDFs, JPEG/PNG pages rendered with the bundled Pillow, and OOXML files written
