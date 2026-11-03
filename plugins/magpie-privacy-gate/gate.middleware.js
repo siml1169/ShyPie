@@ -364,6 +364,33 @@ function binaryOf(node, partContext) {
   return null;
 }
 
+// Vendor-sealed signature fields are opaque blobs the vendor hands back and expects
+// replayed verbatim (Anthropic thinking signature, Responses reasoning
+// encrypted_content, Gemini thoughtSignature). They are exempt from the blob scan
+// ONLY inside the vendor's own block/part: a key named "signature" in tool arguments
+// or message text is ordinary content and is still scanned.
+function sealedFields(value, partContext) {
+  if (!partContext) return null;
+  var type = value.type;
+  // Vendor-sealed content and the vendor's own opaque item ids. Some providers
+  // (Copilot among them) hand back ids that are themselves 400+ char base64
+  // tokens, so replayed ids are the same false positive as signatures when they
+  // sit on a vendor item. A user-supplied id on an ordinary message is not
+  // exempt: without a vendor item type, partContext alone is not enough.
+  if (type === "thinking" || type === "redacted_thinking") {
+    return { signature: 1, thinkingSignature: 1, data: 1, id: 1 };
+  }
+  if (type === "reasoning") return { encrypted_content: 1, id: 1 };
+  if (type === "message") return { id: 1 };
+  if (type === "toolCall" || type === "tool_call" || type === "function_call") {
+    return { id: 1, call_id: 1, thoughtSignature: 1, textSignature: 1 };
+  }
+  if (has(value, "thoughtSignature") || has(value, "textSignature")) {
+    return { thoughtSignature: 1, textSignature: 1, id: 1 };
+  }
+  return null;
+}
+
 // Bounded depth-first walk. `partContext` is true for an element of a
 // content/parts/output/input array, which is where part shapes live.
 function walkValue(value, partContext, depth, state, opts) {
@@ -399,10 +426,12 @@ function walkValue(value, partContext, depth, state, opts) {
     return;
   }
 
+  var sealed = sealedFields(value, partContext);
   var keys = Object.keys(value);
   for (var j = 0; j < keys.length; j++) {
     var key = keys[j];
     if (SKIP_KEY[key]) continue;
+    if (sealed !== null && sealed[key]) continue;
     var child = value[key];
     var childPart = PART_ARRAY_KEY[key] === 1 && Array.isArray(child);
     walkValue(child, childPart, depth + 1, state, opts);
@@ -609,16 +638,16 @@ function rejectOrBlank(body, ctx, block, opts) {
   try {
     if (ctx && typeof ctx.reject === "function") {
       counters.rejected++;
-      var rejected = ctx.reject(403, block.message);
-      // The documented hook contract: returning nothing means "send it on as it was". So if
-      // ctx.reject returns nothing, do not return nothing — fall through to a content-less body.
-      if (rejected !== undefined && rejected !== null) return rejected;
+      // In magpie's host, ctx.reject performs the rejection and returns nothing.
+      // Calling it is the rejection; do not treat "nothing returned" as a failure.
+      ctx.reject(403, block.message);
+      return undefined;
     }
   } catch (e) {
-    // ctx.reject itself failed; fall through to blanking the body.
+    // The call itself failed; fall through to a content-less body.
   }
   counters.blanked++;
-  logLine("privacy-gate: ctx.reject unusable; sent a content-less request instead", opts);
+  logLine("privacy-gate: ctx.reject unavailable; sent a content-less request instead", opts);
   return sanitize(body, ctx);
 }
 

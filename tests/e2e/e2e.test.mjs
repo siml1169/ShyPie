@@ -41,27 +41,22 @@ function extract(mode, path) {
 
 /** Run a middleware hook with a ctx whose reject() returns the sentinel the host recognises. */
 function runHook(fn, body, baseCtx) {
+  let rejected = null
   const ctx = {
     protocol: 'chat',
     model: 'deepseek/deepseek-flash',
     stream: false,
     options: { localModels: [], allowModels: ['deepseek/*'], blobBase64Chars: 400, blobHexChars: 400 },
     state: {},
-    // magpie's documented style is `return ctx.reject(status, message)`; the host value is a
-    // sentinel that ends the request. A real ctx.reject may also be consumed for effect.
+    // magpie's host rejects on the call and returns nothing; the call itself is the rejection.
     reject(status, message) {
-      return { rejected: true, status, message }
+      rejected = { status, message }
     },
     ...baseCtx,
   }
-  try {
-    const out = fn(body, ctx)
-    if (out && out.rejected === true) return { allowed: false, status: out.status, message: out.message }
-    return { allowed: true, body: out ?? body }
-  } catch (err) {
-    if (err && err.rejected) return { allowed: false, status: err.status, message: err.message }
-    throw err
-  }
+  const out = fn(body, ctx)
+  if (rejected !== null) return { allowed: false, status: rejected.status, message: rejected.message }
+  return { allowed: true, body: out ?? body }
 }
 
 function chatBody(textParts) {

@@ -20,6 +20,18 @@ It **never** rejects plaintext PII in `onRequest`: that hook runs *before* magpi
 ("before magpie's redaction on the way out and after it on the way back",
 <https://usemagpie.ai/docs/plugins#middleware>), so rejecting there would double-guess the masker.
 
+## Scope: the Magpie half of ShyPie for DeepSeek Harness
+
+This plugin is the **gateway side** of the ShyPie privacy-first workflow. Its companion is
+[`@shypie_privacy/dsh-privacy-gate`](https://github.com/siml1169/ShyPie/tree/main/plugins/dsh-privacy-gate):
+DeepSeek Harness does the ingestion half (masks tool output, extracts PDFs/OCR locally) and sends only
+redacted text; this middleware enforces the structural half for the harness's traffic through Magpie's
+gateway, with **DeepSeek models as the primary provider**. It also applies to any other agent behind the
+same gateway, which is why it is listed here independently.
+
+It **does not mask text**: text masking is still magpie's Privacy setting. Here it only checks the
+request's structure — non-text parts and encoded payloads.
+
 ---
 
 ## Install
@@ -33,8 +45,8 @@ magpie plugin add ./plugins/magpie-privacy-gate
 magpie plugin                                    # the plugin is listed; it is middleware only (no Bun host)
 ```
 
-From npm (not published yet — [docs/publish.md](../../docs/publish.md)) the same plugin is
-`magpie plugin add @shypie_privacy/magpie-privacy-gate`; the package name is what the registry entry in
+From npm the same plugin is `magpie plugin add @shypie_privacy/magpie-privacy-gate` (0.1.1); the package
+name is what the registry entry in
 [`marketplace/magpie/registry-entry.json`](../../marketplace/magpie/registry-entry.json) lists.
 
 Also make sure the built-in **Gateway middleware** plugin is on: Settings → Plugins → Built-in →
@@ -79,10 +91,29 @@ the `magpie-` prefix — that spelling is **UNVERIFIED**, see [the hooks evidenc
 | `localModels` | `[]` | Globs of models that may receive binary/document parts because the endpoint is local (Ollama, LM Studio). This must mirror the providers where you turned **Send requests unmasked** on — a provider that skips masking and is not in `localModels` is exactly the case this gate exists for. `[]` = no model may receive bytes. |
 | `allowUnknownProtocol` | `false` | `ctx.protocol` is one of `chat`, `responses`, `anthropic`, `gemini`. Anything else cannot be classified and is rejected. Only turn this on if you have taught yourself what the body looks like. |
 | `localProviders` | `[]` | Globs of *provider* ids that may receive binary parts. Checked in `onProvider`, where the provider is known: a local-sounding model id alone is not enough (`[]` = no provider may receive bytes). |
-| `blobBase64Chars` / `blobHexChars` | `400` / `400` | Longest tolerated encoded run inside a text value (contiguous, line-wrapped, or spaced hex). A one-page invoice is ~1.3 k base64 chars, so 400 is deliberate. |
 | `scanChars` / `maxNodes` / `maxDepth` | `200000` / `200000` / `40` | Deterministic text-inspection budget per request (edges of long fields). Long bodies are not rejected; over budget the gate logs degraded. `maxNodes`/`maxDepth` overflow is still a rejection. |
+| `blobBase64Chars` / `blobHexChars` | `400` / `400` | An encoded run at or above this is a **blob** and gets a 403. This is deliberately below a one-page invoice (~1.3 k base64 chars), so a false positive on a long hash or minified line is possible; raise these only if you accept the larger document that then passes. |
 | `logMaxLines` | `40` | Self-cap on `console.log`. magpie's own cap is 60 lines a minute (<https://usemagpie.ai/docs/plugins#middleware>). |
 | `logEveryRows` | `50` | One usage line every N usage rows. |
+
+## Bounded scanning, vendor signatures and false positives
+
+The scan is **bounded by design**, so a summary must not claim that everything was inspected:
+
+- Per text value the gate scans the whole value up to `scanChars`, then only the first and last
+  `scanChars/2` characters; the middle of a very long field is **not** scanned. A body is never
+  rejected for being long (normal long sessions must keep working), and the structural part checks
+  still run on every request. An encoded blob hidden in the unscanned middle of an enormous text
+  field can therefore pass this layer; the DSH side's ingestion gate scans each tool result
+  separately and is the control for that.
+- An encoded-looking run of **400+ base64 or hex characters** is a blob and gets a 403 — a long hash,
+  a minified line or a vendor signature are the expected false positives. Raise
+  `blobBase64Chars`/`blobHexChars` deliberately if you need them.
+- **Vendor-sealed signatures are exempt from the blob scan, but only inside the vendor's own block**:
+  an Anthropic `thinking` block's `signature`, a Responses `reasoning` item's
+  `encrypted_content`, and a Gemini part's `thoughtSignature` are replayed verbatim on later turns
+  and must not be read as smuggled bytes. A field with the same name in tool arguments or message text
+  is still scanned.
 
 ## Turn on full masking in Settings → Privacy (the text half)
 
@@ -122,7 +153,7 @@ documented keys; this machine additionally has `redactModel: true`,
 
 ```sh
 # 1. the gate itself, no magpie needed, no network
-node test/harness.mjs                      # 44 checks: all four protocols, localModels, blobs, limits
+node test/harness.mjs                      # checks: all four protocols, localModels, blobs, limits, vendor signatures
 
 # 2. magpie sees the plugin and its hooks
 magpie plugin

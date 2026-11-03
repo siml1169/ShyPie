@@ -74,9 +74,10 @@ function mkCtx({ protocol = "chat", model = "deepseek/deepseek-v4", options, can
   const seen = [];
   const ctx = { protocol, model, stream: false, path: "/v1", options, state: {} };
   if (canReject) {
+    // magpie's host rejects on the call and returns nothing; model that faithfully.
     ctx.reject = (status, message) => {
       seen.push({ status, message });
-      return "REJECTED";
+      return undefined;
     };
   }
   return { ctx, seen };
@@ -90,7 +91,7 @@ function allow(gate, body, ctx, seen) {
 
 function reject(gate, body, ctx, seen, contains) {
   const out = gate.onRequest(body, ctx);
-  assert.equal(out, "REJECTED", "a rejected request must return ctx.reject(...)");
+  assert.equal(out, undefined, "a rejected request returns nothing after ctx.reject(...)");
   assert.equal(seen.length, 1, "exactly one reject per request");
   assert.equal(seen[0].status, 403);
   const message = seen[0].message;
@@ -562,19 +563,21 @@ test("policy: a blob late in a large conversation is still found", () => {
   reject(gate, { model: "m/x", messages }, ctx, seen, "blob");
 });
 
-test("policy: ctx.reject returning undefined does not let the request through", () => {
+test("policy: ctx.reject returning nothing is still a rejection", () => {
   const gate = loadGate();
-  const ctx = { protocol: "chat", model: "m/x", reject() { return undefined; } };
+  const seen = [];
+  const ctx = { protocol: "chat", model: "m/x", reject(status, message) { seen.push({ status, message }); } };
   const out = gate.onRequest(chat.imageUrl(), ctx);
-  assert.ok(markerPresent(out), "the fallback must send a content-less body, not the request");
-  assert.ok(!JSON.stringify(out).includes("image_url"));
+  assert.equal(out, undefined, "returning nothing after ctx.reject is the rejection");
+  assert.equal(seen.length, 1);
+  assert.equal(seen[0].status, 403);
 });
 
 test("policy: a body that is not an object is rejected", () => {
   const gate = loadGate();
   const { ctx, seen } = mkCtx();
   const out = gate.onRequest("just a string", ctx);
-  assert.equal(out, "REJECTED");
+  assert.equal(out, undefined);
   assert.equal(seen[0].status, 403);
 });
 
@@ -592,9 +595,115 @@ test("policy: an unreadable body rejects instead of throwing (fail closed)", () 
   assert.doesNotThrow(() => {
     out = gate.onRequest(body, ctx);
   }, "the hook must never throw: magpie would then send the request as it was");
-  assert.equal(out, "REJECTED");
+  assert.equal(out, undefined);
   assert.equal(seen[0].status, 403);
   assert.ok(!seen[0].message.includes("synthetic-boom"));
+});
+
+// --- vendor-sealed signatures: replay fields must not look like smuggled bytes ---
+
+const SIG = "QUJD".repeat(400); // 1600 base64 chars, like a real thinking signature
+const SIG2 = "REVG".repeat(300); // 1200 base64 chars
+
+test("chat/DSH: a thinkingSignature and a toolCall thoughtSignature are exempt", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx();
+  const body = {
+    model: "deepseek/deepseek-v4",
+    messages: [
+      { role: "user", content: "read the invoice" },
+      { role: "assistant", content: [
+        { type: "thinking", thinking: "Let me check the totals.", thinkingSignature: SIG },
+        { type: "toolCall", id: "call_1", name: "read", arguments: { path: "a.txt" }, thoughtSignature: SIG2 },
+      ] },
+    ],
+  };
+  allow(gate, body, ctx, seen);
+});
+
+test("anthropic: a thinking block signature is exempt", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "anthropic" });
+  const body = { model: "m/x", messages: [
+    { role: "user", content: "hi" },
+    { role: "assistant", content: [
+      { type: "thinking", thinking: "Checking.", signature: SIG },
+      { type: "text", text: "done" },
+    ] },
+  ] };
+  allow(gate, body, ctx, seen);
+});
+
+test("responses: a reasoning item encrypted_content is exempt", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "responses" });
+  const body = { model: "m/x", input: [
+    { type: "reasoning", id: "rs_1", encrypted_content: SIG, summary: [] },
+    { type: "message", role: "assistant", content: [{ type: "output_text", text: "done" }] },
+    { role: "user", content: [{ type: "input_text", text: "continue" }] },
+  ] };
+  allow(gate, body, ctx, seen);
+});
+
+test("gemini: a part thoughtSignature is exempt", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "gemini" });
+  const body = { model: "m/x", contents: [
+    { role: "user", parts: [{ text: "hi" }] },
+    { role: "model", parts: [
+      { text: "done" },
+      { functionCall: { name: "read", args: { path: "a.txt" } }, thoughtSignature: SIG },
+    ] },
+  ] };
+  allow(gate, body, ctx, seen);
+});
+
+test("signatures are exempt only inside vendor blocks: tool arguments still scanned", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx();
+  const body = { model: "m/x", messages: [
+    { role: "assistant", content: [
+      { type: "toolCall", id: "call_1", name: "write", arguments: { signature: SIG } },
+    ] },
+  ] };
+  reject(gate, body, ctx, seen, "blob");
+});
+
+test("signatures are exempt only inside vendor blocks: thinking text is still scanned", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "anthropic" });
+  const body = { model: "m/x", messages: [
+    { role: "assistant", content: [{ type: "thinking", thinking: SIG, signature: "QUJD".repeat(400) }] },
+  ] };
+  reject(gate, body, ctx, seen, "blob");
+});
+
+test("responses reasoning: only encrypted_content is exempt, its content is scanned", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "responses" });
+  const body = { model: "m/x", input: [
+    { type: "reasoning", encrypted_content: SIG, content: [{ type: "reasoning_text", text: SIG }], summary: [] },
+  ] };
+  reject(gate, body, ctx, seen, "blob");
+});
+
+test("responses: vendor item ids that are themselves long base64 are exempt", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "responses" });
+  const body = { model: "m/x", input: [
+    { type: "reasoning", id: SIG, encrypted_content: SIG, summary: [] },
+    { type: "message", id: SIG, role: "assistant", content: [{ type: "output_text", text: "done" }] },
+  ] };
+  allow(gate, body, ctx, seen);
+});
+
+test("responses: a user item id is not exempt just because it is in input", () => {
+  const gate = loadGate();
+  const { ctx, seen } = mkCtx({ protocol: "responses" });
+  const body = { model: "m/x", input: [
+    { role: "user", id: SIG, content: [{ type: "input_text", text: "hi" }] },
+  ] };
+  reject(gate, body, ctx, seen, "blob");
 });
 
 // --- onProvider: cannot reject, must not leak ---------------------------
