@@ -168,8 +168,10 @@ Reference implementation, tested on one Windows machine. **Published:** all four
 GitHub release yet. The Magpie registry entry is [PR #685](https://github.com/magpie-community/plugins/pull/685);
 the DSH catalog entry is prepared but not submitted (the repository must be one day old first).
 The **live wiring** was exercised manually on 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle
-installed from npm, a two-turn DeepSeek session through a live Magpie gateway, and a temporary
-model-allowlist block that the gate rejected. It is not part of the automated suite; the remaining
+installed from npm, two-turn DeepSeek and Copilot `gpt-6.1-sol` sessions through a live Magpie
+gateway, and a temporary model-allowlist block that the gate rejected. OpenAI Responses
+`encrypted_content` and Anthropic thinking `signature` were replayed through Copilot-routed
+models and accepted (HTTP 200). It is not part of the automated suite; the remaining
 verification limits are listed in [docs/design.md §11](docs/design.md#11-verification).
 
 Security issues: see [SECURITY.md](SECURITY.md).
