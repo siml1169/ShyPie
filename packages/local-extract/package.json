@@ -41,7 +41,7 @@
     ".": "./engines.js"
   },
   "bin": {
-    "shypie-extract": "./cli.js"
+    "shypie-extract": "cli.js"
   },
   "scripts": {
     "test": "node --test test/cli.test.mjs test/engines.test.mjs test/fixtures.test.mjs",
