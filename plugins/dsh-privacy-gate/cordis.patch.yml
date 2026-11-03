@@ -1,0 +1,23 @@
+# Privacy Gate — Host bundle patch.
+#
+# One row only: the Host plugin. It needs no dependency packages (everything
+# else resolves from the dsh installation). Install the bundle with
+# `plugin_manager install_bundle` and the absolute package directory as target;
+# do not copy these rows into the profile's own patch by hand.
+#
+# `config` replaces the row's config wholesale on override, so a user patch that
+# changes one key must restate the others (Loader dialect, see
+# cordis-composition-reference/SKILL.md:15).
+- insert:
+    - id: privacy-gate
+      name: '@privacy/dsh-privacy-gate'
+      config:
+        allowPaths: []
+        detectors: []
+        personWords: []
+        blockNonTextResults: true
+        audit:
+          enabled: false
+          path: ''
+        placeholderKey:
+          file: ''

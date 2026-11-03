@@ -1,0 +1,23 @@
+{
+  "name": "@privacy/pii-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Deterministic local PII detectors and keyed placeholders for the privacy-first workflow (zero dependencies, no Node built-ins in index.js).",
+  "main": "./index.js",
+  "exports": {
+    ".": "./index.js",
+    "./vault": "./vault.js"
+  },
+  "files": [
+    "index.js",
+    "vault.js",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node --test test/"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

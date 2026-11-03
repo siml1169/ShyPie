@@ -1,0 +1,4 @@
+{
+  "title": "Privacy Gate",
+  "description": "Keeps PII local: masks tool results and model-visible prompts before they enter the session, extracts PDFs and OCR locally, and blocks any transfer it cannot mask."
+}

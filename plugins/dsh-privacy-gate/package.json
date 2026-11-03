@@ -1,0 +1,30 @@
+{
+  "name": "@privacy/dsh-privacy-gate",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Ingest-time PII masking and local document extraction for DeepSeek Harness",
+  "exports": {
+    ".": "./index.js",
+    "./package.json": "./package.json",
+    "./locale/*.json": "./locale/*.json"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "locale",
+    "vendor",
+    "scripts",
+    "cordis.patch.yml",
+    "README.md"
+  ],
+  "scripts": {
+    "vendor": "node scripts/vendor-core.mjs",
+    "test": "node --test \"test/*.test.mjs\""
+  },
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}
