@@ -49,7 +49,7 @@ so no dependencies are declared. Do **not** hand-edit the profile's
 `package.json`/`cordis.patch.yml`, and do not copy `vendor/` state between
 installs — run the script.
 
-Once published to npm the same bundle installs by name —
+From npm the same bundle installs by name —
 `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` — with the `vendor/`
 copy already inside the package. `engines.dsh` is `>=0.2.0 <0.3.0`
 ([docs/publish.md](../../docs/publish.md)).

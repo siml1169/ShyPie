@@ -14,9 +14,10 @@ This repository is a reference implementation of a two-plugin combo for
 | [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
 | [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
 
-The two plugins are prepared for the **Magpie** and **DeepSeek Harness** plugin markets; they are
-not published yet. Package metadata, the MIT license, and both marketplace submission files are in
-place — [docs/publish.md](docs/publish.md) is the checklist.
+All four packages are published on npm at `0.1.0`; the Magpie middleware's `0.1.1` fix is staged for
+npm's 2FA approval. The Magpie registry entry is submitted as
+[PR #685](https://github.com/magpie-community/plugins/pull/685); the DSH catalog entry is prepared and
+can be opened once the repository is one day old. [docs/publish.md](docs/publish.md) has the exact state.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
 documented precisely in [docs/design.md](docs/design.md) and summarised below.
@@ -94,17 +95,20 @@ model output (placeholders) ─► privacy_rehydrate ─► local artifact
 
 ## Quick start
 
-Nothing is published yet, so install from this checkout today:
+Install from npm (published `0.1.0`; until the `0.1.1` Magpie fix is approved, the folder path loads
+the fixed middleware from this checkout):
 
-1. Install the Magpie middleware from the folder — see [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate/README.md).
-2. Install the DSH bundle through the plugin manager — see [`docs/install.md`](docs/install.md).
+1. Install the Magpie middleware — `magpie plugin add @shypie_privacy/magpie-privacy-gate`, or the
+   folder [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate/README.md) for `0.1.1`.
+2. Install the DSH bundle — `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`, or
+   through the plugin manager as in [`docs/install.md`](docs/install.md).
 3. In Magpie, enable masking under **Settings → Privacy** (text half of the combo).
 4. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
 
-Both plugins are reversible; no profile file is edited by hand. Once the packages are on npm, the
-same steps become `magpie plugin add @shypie_privacy/magpie-privacy-gate` and
-`dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`; [docs/publish.md](docs/publish.md) covers
-that path and the two marketplace listings.
+Both plugins are reversible; no profile file is edited by hand. The published names are
+`magpie plugin add @shypie_privacy/magpie-privacy-gate` and
+`dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`; [docs/publish.md](docs/publish.md)
+covers the release state and the two marketplace listings.
 
 ## Verify
 
@@ -119,7 +123,7 @@ Measured on the reference machine (Windows 11, Node 24, no network):
 | `pii-core` | 61 tests, 60 pass (1 platform skip); 50,125-char doc with 2,133 hits redacts in 11.5 ms; 300k-digit run 40 ms |
 | `local-extract` | 49/49; text PDF, Office, local OCR, and all documented block reasons |
 | `dsh-privacy-gate` | 86/86; activation check registers 3 listeners, 1 guard, 4 tools |
-| `magpie-privacy-gate` | 49/49 in a `node:vm` sandbox with only `console` (proves the moejs constraint) |
+| `magpie-privacy-gate` | 58/58 in a `node:vm` sandbox with only `console` (proves the moejs constraint) |
 | `e2e` | 11/11 — synthetic invoice → local text → placeholders → gateway → mock vendor, with zero plaintext on the wire |
 
 The end-to-end suite uses only synthetic fixtures generated at test time. No real document, invoice,
@@ -141,7 +145,7 @@ packages/
 plugins/
   dsh-privacy-gate/       DeepSeek Harness bundle
   magpie-privacy-gate/    Magpie gateway middleware
-marketplace/              submission files for the two plugin markets (not yet submitted)
+marketplace/              submission files; Magpie PR #685 open, DSH entry pending repo age
 config/                   example Magpie middleware options
 tests/                    end-to-end tests and the one-command runner
 LICENSE                   MIT
@@ -159,12 +163,13 @@ LICENSE                   MIT
 
 ## Status
 
-Reference implementation, tested on one Windows machine. **Not published:** the npm packages, the
-Magpie registry entry and the DSH catalog entry are prepared but unsubmitted — see
-[docs/publish.md](docs/publish.md). The **live wiring** (loading the bundle into
-a real DSH profile, loading the middleware into a real Magpie gateway) is written against the
-documented APIs and the source evidence in [docs/research](docs/research/), but was not exercised in
-this repository's test suite — exercising it changes profile-wide state. What is and is not verified
-is listed in [docs/design.md §11](docs/design.md#11-verification).
+Reference implementation, tested on one Windows machine. **Published:** all four npm packages at
+`0.1.0`; the Magpie middleware `0.1.1` is staged for 2FA approval. Tag `v0.1.1` exists; there is no
+GitHub release yet. The Magpie registry entry is [PR #685](https://github.com/magpie-community/plugins/pull/685);
+the DSH catalog entry is prepared but not submitted (the repository must be one day old first).
+The **live wiring** was exercised manually on 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle
+installed from npm, a two-turn DeepSeek session through a live Magpie gateway, and a temporary
+model-allowlist block that the gate rejected. It is not part of the automated suite; the remaining
+verification limits are listed in [docs/design.md §11](docs/design.md#11-verification).
 
 Security issues: see [SECURITY.md](SECURITY.md).

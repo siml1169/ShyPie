@@ -3,7 +3,7 @@
   "name": "ShyPie Privacy Gate",
   "kind": "middleware",
   "summary": {
-    "en": "Structural egress firewall: turns away image, file and audio parts, encoded blobs and models outside the allowlist whenever magpie cannot mask the content locally, and fails closed on anything it cannot inspect.",
-    "zh": "结构化出口防火墙：凡是 magpie 无法在本地掩码的图片、文件与音频内容、编码数据块，以及不在允许列表中的模型，一律拒绝；无法检查的内容按失败关闭处理。"
+    "en": "The Magpie-side gate of ShyPie's privacy-first workflow for DeepSeek Harness: with DSH on DeepSeek models behind Magpie's gateway, it turns away image/file/audio parts, encoded blobs and models outside the allowlist whenever Magpie cannot mask them locally, and fails closed on content it cannot inspect. It does not mask text (Magpie's Privacy masking does); images and files get a 403 by default unless localModels or localProviders is set, and the scan is bounded, so long encoded tokens can be false positives.",
+    "zh": "ShyPie 面向 DeepSeek Harness 的隐私优先工作流中 Magpie 一侧的出口门：当 DSH 通过 Magpie 网关使用 DeepSeek 模型时，对 Magpie 无法本地掩码的图片/文件/音频、编码数据块和允许列表之外的模型一律拒绝，无法检查的内容按失败关闭处理。它不做文本掩码（文本由 Magpie Privacy 负责）；图片和文件默认返回 403，除非设置了 localModels 或 localProviders；扫描有字符预算，较长的编码串可能被误判。"
   }
 }

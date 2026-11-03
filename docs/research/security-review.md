@@ -12,6 +12,14 @@ probes (below).
 > machine-specific paths were replaced with placeholders. Line numbers in `file:line` references are those
 > of the reviewed revision; the resolution section records what changed.
 
+> **Post-publication update (2026-11-03).** The repository is now published at `0.1.0` and tagged
+> `v0.1.1`; the Magpie middleware was loaded into a live Magpie gateway and exercised with DSH
+> 0.2.1-rc.5 headless (two-turn DeepSeek session; a temporary model-allowlist block was rejected by the
+> gate). Current top-level suite counts: pii-core 61 (60 pass, 1 skip), local-extract 49, dsh gate 86,
+> Magpie harness 58, e2e 11. In 0.1.1 vendor-sealed signature/id fields are exempt only inside their
+> vendor block, and `ctx.reject` is called with the hook returning immediately — magpie's host performs
+> the rejection and returns nothing, so the return value is not consulted.
+
 **What was not done (and why):** no live DSH profile, no live Magpie gateway (away from a user's machine),
 no user documents/PII trees read, no installs, no network. Consequences are marked **UNVERIFIED** where
 they matter. Probes that were executed are marked **measured**.
@@ -467,7 +475,7 @@ as written so the findings remain auditable.
 | B4 placeholder-shaped text hides a value | **fixed** | only *issued* placeholders are excluded; unknown shapes are scanned with their hash blanked; `hardening.test.js` |
 | B5 `toLowerCase` index desync | **fixed** | keyword matching is a case-insensitive regex on the original text; `hardening.test.js` |
 | B6 `allowPaths` traversal / extract bypass | **fixed** | `..` collapsed in `lib/paths.js`; extract tools check lexical path **and** realpath and never spawn on refusal; `paths.test.mjs`, `tools.test.mjs` |
-| B13 `ctx.reject` returning undefined | **fixed** | `ctx.reject(...) ?? sanitize(body)` + harness case |
+| B13 `ctx.reject` returning undefined | **fixed** | `ctx.reject(...)` call is the rejection and the hook returns immediately (no fallback on an undefined return); harness case + live-gateway check |
 | B12 oversized body rejected / no self-limit | **fixed** | deterministic `scanChars` text budget; no size rejection, no clock; long-session test in the harness |
 | B11 model-id spoofing for "local" | **fixed** | `onProvider` requires the *provider* id in `localProviders`; harness case |
 | B7/B8/B9/B10 text-file reads, rehydrate misses, second provider, shell egress | **documented** | DESIGN §12.19-21 |

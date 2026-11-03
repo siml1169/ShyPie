@@ -226,7 +226,8 @@ Files: `gate.middleware.js` (or `package.json` with `{"magpie":{"middleware":"./
 Hooks:
 
 ```js
-export function onRequest(body, ctx)   // before routing/redaction; may ctx.reject(status, msg)
+export function onRequest(body, ctx)   // before routing/redaction; call ctx.reject(status, msg);
+                                       // in magpie's host the call performs the rejection and returns nothing
 export function onProvider(body, ctx)  // per provider try; may only rewrite body
 export function onUsage(row, options)  // audit counters only; no bodies
 ```
@@ -239,7 +240,10 @@ Behaviour:
    `ctx.reject(403, "privacy-gate: binary/document part cannot be masked locally; extract to text
    first")`. Exact wording may change, but the message must never echo content.
 2. BLOB smuggling: reject a *text* part matching a base64/hex blob over the configured threshold
-   (an agent can smuggle document bytes as text) with 403.
+   (an agent can smuggle document bytes as text) with 403. Vendor-sealed replay fields are exempt
+   **only inside their vendor block**: Anthropic thinking `signature`, Responses reasoning
+   `encrypted_content`, Gemini part `thoughtSignature`, and vendor item `id`; a same-named key in
+   tool arguments or message text is still scanned. The text scan is bounded by `scanChars`.
 3. Model allowlist: `options.allowModels` (globs) — anything else is rejected with 403 naming the
    model and the policy, never the content. Empty list = allow all (but rule 1 still applies).
 4. Audit: `onUsage(row, options)` increments counters and `console.log`s one bounded line

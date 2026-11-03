@@ -1,7 +1,7 @@
 # Security policy
 
-This repository is a **reference implementation** of a privacy workflow; it has no releases yet and
-no formal support window. Read [docs/design.md](docs/design.md) for the threat model and
+This repository is a **reference implementation** of a privacy workflow; it is tagged `v0.1.1`, has
+no GitHub release yet and no formal support window. Read [docs/design.md](docs/design.md) for the threat model and
 [§12 "Known limitations"](docs/design.md#12-known-limitations) for what it does **not** protect
 against. An independent adversarial review, with the list of fixed findings and remaining residuals,
 is in [docs/research/security-review.md](docs/research/security-review.md).
@@ -37,5 +37,6 @@ Out of scope:
 - What a provider does with data after it has been sent (that is why the data is masked first).
 - Free-text personal names and other values outside the deterministic detector scope — these are
   documented limitations, not vulnerabilities.
-- The absence of a live end-to-end test against a real DeepSeek Harness profile or Magpie gateway
-  (that is a stated verification limit, see [docs/design.md §11](docs/design.md#11-verification)).
+- The exact live matrix: the bundle and middleware were exercised manually on 2026-11-03 (DSH
+  0.2.1-rc.5 headless + live Magpie gateway), but there is no CI live test and the DSH GUI profile is
+  managed by the Electron app — see [docs/design.md §11](docs/design.md#11-verification).

@@ -78,7 +78,7 @@ detectors, which is what makes `redact(redact(x)) === redact(x)` hold (I6).
 ## Verification / test evidence
 
 Test command (per directory, bundled Node v24.21.0):
-`node --test test/` → **50 tests, 49 pass, 0 fail, 1 skipped** (the 0600-mode assertion is skipped on
+`node --test test/` → **61 tests, 60 pass, 0 fail, 1 skipped** (the 0600-mode assertion is skipped on
 Windows, which does not model POSIX modes; the key file is still written with `mode: 0o600` and
 `chmodSync` is attempted best-effort).
 

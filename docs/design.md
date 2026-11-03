@@ -309,13 +309,15 @@ the same gateway (Copilot, Cursor, Claude Code, scripts):
 | Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(403, …)` |
 | Text part that is really a blob (base64 ≥ 400 contiguous **or** line-wrapped, spaced hex, `data:` URI, PDF/ZIP magic) | `onRequest` | `ctx.reject(403, …)` |
 | Model not matching `allowModels` | `onRequest` | `ctx.reject(403, …)` |
+| Vendor-sealed signature/id field inside its vendor block (Anthropic thinking `signature`, Responses reasoning `encrypted_content`, Gemini part `thoughtSignature`, vendor item `id`) | `onRequest` | exempt from the blob scan; the same key in tool arguments or message text is still scanned |
 | Binary part on a provider not declared local (`onProvider`, where the provider id is known) | `onProvider` | content blanked (cannot reject there) |
 | Everything else | `onRequest` | pass through untouched |
 | Counters only (provider, model, status, blocked) | `onUsage` | one bounded log line |
 
 **Failure semantics.** Magpie ignores a middleware hook that throws, times out or returns something
 unexpected — the request then goes out *as it was*. The gate therefore never relies on an exception
-to block: it evaluates explicitly and calls `ctx.reject`, treats an unreadable body / unknown
+to block: it evaluates explicitly and calls `ctx.reject` (in magpie's host that call performs the
+rejection and returns nothing, so the call itself is the rejection), treats an unreadable body / unknown
 protocol as a rejection, and uses `onProvider` (which cannot reject) to blank the content containers
 as a last structural defence. Its text scan has a deterministic character budget (`scanChars`,
 200 k chars per request) and waits on no clock, so it cannot overrun the 250 ms hook budget and be
@@ -460,16 +462,16 @@ node tests/run-all.mjs                   # every suite, one summary
 | Redaction cost | `packages/pii-core/test/perf.test.js`, `test/hardening.test.js` | 50,125-char synthetic doc, 2,133 hits → **11.5 ms best / 12.3 ms median** warm (budget 50 ms); clean 50k doc 2.5 ms; adversarial 300k-digit run **40 ms** (was 380 ms before the card-detector fast path), 1M digits 110 ms |
 | PDF text extraction, Office extraction, OCR, every reachable block reason | `packages/local-extract/test/` | **49/49 pass**; text layer 93 chars; scan → `winrt-ocr`, ~0.65–0.78 s for 2 pages, 2.9–3.3 s full CLI; all 8 block reasons measured |
 | DSH gate: redacts results, `next()` unchanged, BLOB block, guards, fail-closed, 4 tools, real vendored core | `plugins/dsh-privacy-gate/test/` | **86/86 pass**; `node --check` clean on 22 files; activation check → 3 listeners, 1 guard, 4 tools registered |
-| DSH Gate 3: model-visible user text masked, attachment steps rejected, raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; live seam not exercised |
-| Magpie middleware: image/file/audio rejection, blob rejection, allowlist, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `plugins/magpie-privacy-gate/test/harness.mjs` | **49/49 pass** in `node:vm` with only `console`; 15 forbidden-token checks (`fetch`/`require`/timers/`process`/`Buffer`/`module` all absent) |
+| DSH Gate 3: model-visible user text masked, attachment steps rejected, raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; live DSH 0.2.1-rc.5 headless session exercised manually 2026-11-03 (GUI profile not exercised) |
+| Magpie middleware: image/file/audio rejection, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `plugins/magpie-privacy-gate/test/harness.mjs` | **58/58 pass** in `node:vm` with only `console`; 15 forbidden-token checks (`fetch`/`require`/timers/`process`/`Buffer`/`module` all absent) |
 | End-to-end: synthetic invoice → local text → placeholders → request body has no plaintext → gateway allow/reject → reply restores | `tests/e2e/` | **11/11 pass**, incl. the blocked-scan path and the OS-OCR path |
-| The bundle installs and is live in a real DSH profile | — | **not verified here** (would modify a user profile; steps in [install.md](install.md)) |
-| The middleware runs inside a real Magpie gateway | — | **not verified here** (would modify the local Magpie config) |
+| The bundle installs and is live in a real DSH profile | — | **verified manually 2026-11-03**: npm install into the `headless` and `desktop` profiles; two-turn DeepSeek session through the live gateway; temporary model-allowlist block rejected a turn | 
+| The middleware runs inside a real Magpie gateway | — | **verified manually 2026-11-03**: loaded in the live gateway, hooks listed, image part 403, signature/id replay passed to the provider, long-token block confirmed |
 
-Honest limits: the plugin's *wiring* to the live cordis context and to a live Magpie host is written
-against the documented APIs and the shipped-source evidence in `research/`, not exercised against a
-running profile. The core logic, the fail-closed paths and the end-to-end data flow are tested; the
-activation wiring was checked with a fake ctx, not the live loader.
+Live seams were exercised manually on 2026-11-03 (DSH 0.2.1-rc.5 headless + live Magpie), not in CI:
+the DSH GUI profile is managed by the Electron app and the Magpie config is machine-local. The core
+logic, fail-closed paths and end-to-end data flow remain covered by the automated suites; the
+activation wiring is additionally covered by the activation check and the manual run above.
 
 ---
 

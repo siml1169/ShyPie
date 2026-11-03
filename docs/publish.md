@@ -1,61 +1,76 @@
 # Publish and marketplace listing
 
 Everything needed to ship the four packages and to get the two plugins listed in the Magpie and
-DeepSeek Harness markets. **Nothing here has been published yet** — this document is the checklist,
-and [`marketplace/`](../marketplace) holds the two submission files ready to copy.
+DeepSeek Harness markets. This file is the current state and the repeatable checklist.
 
-| Artifact | npm package | Directory | Marketplace |
-|---|---|---|---|
-| PII core | `@shypie_privacy/pii-core` | [`packages/pii-core`](../packages/pii-core) | library only |
-| Local extractor | `@shypie_privacy/local-extract` | [`packages/local-extract`](../packages/local-extract) | library only |
-| DSH bundle | `@shypie_privacy/dsh-privacy-gate` | [`plugins/dsh-privacy-gate`](../plugins/dsh-privacy-gate) | awesome-dsh-plugin → dsh-market |
-| Magpie middleware | `@shypie_privacy/magpie-privacy-gate` | [`plugins/magpie-privacy-gate`](../plugins/magpie-privacy-gate) | magpie-community registry |
+## Current state (2026-11-03)
 
-## 0. Prerequisites for the first publish
+| Artifact | npm | Marketplace |
+|---|---|---|
+| PII core | `@shypie_privacy/pii-core@0.1.0` — published | library only |
+| Local extractor | `@shypie_privacy/local-extract@0.1.0` — published | library only |
+| DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.1.0` — published | awesome-dsh-plugin → dsh-market: entry ready, not submitted |
+| Magpie middleware | `@shypie_privacy/magpie-privacy-gate@0.1.0` — published; `0.1.1` staged | magpie-community registry: [PR #685](https://github.com/magpie-community/plugins/pull/685) open |
 
-1. **Publish under the `@shypie_privacy` scope.** The npm org `shypie_privacy` exists and `siml1169`
-   is its owner; a scoped package can only be published by a member of the matching org. If the
-   scope ever has to change again, the four `name` fields, the `cordis.patch.yml` row and every
-   `@shypie_privacy/` reference in the docs must move together — the patch row references the
-   package **by name**.
-2. **2FA.** npm refuses a publish from an account without 2FA unless the token has *bypass 2FA*;
-   `siml1169` has `auth-and-writes` enabled, so every `npm publish` needs a one-time password —
-   `--otp=<code>`, or answer npm's prompt.
-3. **Check what would ship** before each first publish: `npm pack --dry-run` in the package
-   directory. The `files` allowlists are already tight (no tests, no fixtures, no key material).
-4. `publishConfig.access` is `public` in all four manifests, so no `--access public` flag is needed.
+- Tag `v0.1.1` is pushed; there is no GitHub release yet.
+- `0.1.1` is staged on npm under id `a9792716-3890-46a2-ae6f-c92e0fcf3aae` (the vendor-signature,
+  options and `ctx.reject` fixes). `npm view @shypie_privacy/magpie-privacy-gate version` still shows
+  `0.1.0` until the stage is approved with 2FA.
+- The DSH catalog submission can be opened after **2026-11-04 08:20 UTC** (repository created
+  2026-11-03 08:20 UTC; the catalog requires one day).
 
-## 1. Publish the packages
+## 1. Publishing a version
 
-The libraries first, so the marketplace entries can point at versions that already exist:
+The scope, `publishConfig.access: public`, and MIT metadata are already set in all four manifests.
+`npm pack --dry-run` in each directory is the check that the `files` allowlist still ships only the
+intended files.
+
+npm's staged publishing is the path used here (it defers 2FA to the approval step):
 
 ```bash
-cd packages/pii-core        && npm publish --otp=<code>
-cd ../local-extract         && npm publish --otp=<code>
-cd ../../plugins/magpie-privacy-gate && npm publish --otp=<code>
-cd ../dsh-privacy-gate      && npm publish --otp=<code>
+# from each package directory, in this order
+npm stage publish
+npm stage list                     # read the stage id
+npm stage approve <stage-id>       # 2FA prompt / web auth
 ```
 
-A one-time password is valid for 30 seconds, so run one package per code — or drop `--otp` and let
-npm prompt after each upload starts.
+`npm publish --otp=<code>` is the direct alternative. Approve or publish in this order so the
+marketplace packages resolve to versions that already exist:
 
-Verify each one:
+```text
+packages/pii-core → packages/local-extract → plugins/magpie-privacy-gate → plugins/dsh-privacy-gate
+```
+
+Verify the registry metadata after approval:
 
 ```bash
 npm view @shypie_privacy/pii-core version
-npm view @shypie_privacy/magpie-privacy-gate magpie.middleware
-npm view @shypie_privacy/dsh-privacy-gate dsh.bundle.patch
+npm view @shypie_privacy/local-extract version
+npm view @shypie_privacy/magpie-privacy-gate version magpie.middleware
+npm view @shypie_privacy/dsh-privacy-gate version dsh.bundle.patch
 ```
 
-Then tag the repository (one tag for the coordinated 0.1.0 release):
+Then tag the release and push the tag:
 
 ```bash
-git tag -a v0.1.0 -m "ShyPie 0.1.0" && git push origin v0.1.0
+git tag -a v<version> -m "ShyPie <version>" && git push origin v<version>
 ```
+
+The current tag is `v0.1.1`. A tag is not a GitHub release; create the release from the tag when the
+release notes are ready.
 
 ## 2. Magpie: gateway middleware
 
-Install from npm once published (the plugin name is the package name):
+The registry entry is [`marketplace/magpie/registry-entry.json`](../marketplace/magpie/registry-entry.json).
+It has been submitted as [PR #685](https://github.com/magpie-community/plugins/pull/685); the PR branch
+has the scope clarified for DeepSeek Harness + DeepSeek models, the bounded-scan caveat, and the
+vendor-signature exemption.
+
+The registry route is used because the GitHub-topic route requires a `package.json` at the repository
+root and this is a monorepo. `"kind": "middleware"` puts it under **Gateway middleware**; leaving out
+`"community": true` means the card shows the npm publisher instead of the community badge.
+
+After the listing merges:
 
 ```bash
 magpie plugin add @shypie_privacy/magpie-privacy-gate
@@ -63,62 +78,54 @@ magpie plugin options privacy-gate '{ … }'   # same JSON as config/magpie-gate
 magpie plugin                                 # listed, middleware only
 ```
 
-### Listing
-
-Two routes exist. This repository uses the **registry route**, because the GitHub-topic route
-requires a `package.json` at the repository root and this is a monorepo.
-
-1. **Registry (prepared).** Add [`marketplace/magpie/registry-entry.json`](../marketplace/magpie/registry-entry.json)
-   as one entry in the `plugins` array of `registry.json` in
-   [magpie-community/plugins](https://github.com/magpie-community/plugins) and open a pull request.
-   `"kind": "middleware"` puts it under **Gateway middleware**; leaving out `"community": true`
-   means the card shows the npm publisher instead of the community badge.
-2. **GitHub topic (not used).** A repository tagged `magpie-plugin` appears under
-   **Plugins → Discover → Unofficial, on GitHub**. That route reads `package.json` from the
-   repository root; the middleware lives in `plugins/magpie-privacy-gate`, so only the registry
-   route lists it correctly. The topic is still set, for GitHub search.
-
 ## 3. DeepSeek Harness: bundle
 
-Install from npm once published:
+The catalog is [awesome-dsh-plugin/awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin);
+the same data feeds `dsh-market` and the `Plugins → Discover` index sources.
+
+The entry is [`marketplace/dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml`](../marketplace/dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml).
+The submission can be opened after the repository is one day old (see above). Copy the file to
+`data/plugins/` in that repository and open a pull request; the READMEs there are generated and must
+not be edited by hand.
+
+The `url`/`name` pair uses the documented monorepo form: the URL points at the subdirectory and the
+name is `owner/repo#subpackage`. The checks the submission must pass:
+
+- the package declares `dsh.bundle` — yes, `plugins/dsh-privacy-gate/package.json`, together with its
+  `cordis.patch.yml` next door;
+- the repository is at least **1 day old**;
+- the repository carries the **`dsh-plugin`** topic — set on `siml1169/ShyPie`;
+- the description is accurate — it names exactly the four tools the bundle registers and the two
+  guards, nothing more.
+
+Install from npm once the entry exists:
 
 ```bash
 dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 ```
 
-`engines.dsh` is `>=0.2.0 <0.3.0` (verified against `0.2.1-rc.5`). Widen it only after testing the
-host with the newer release; installation and profile startup refuse a bundle outside the range.
+`engines.dsh` is `>=0.2.0 <0.3.0` (verified against `0.2.1-rc.5`). Widen it only after testing the host
+with the newer release; installation and profile startup refuse a bundle outside the range.
 
-### Listing
+## 4. After publishing
 
-The catalog is [awesome-dsh-plugin/awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin);
-the same data feeds `dsh-market` and the `Plugins → Discover` index sources.
+- [x] `magpie plugin add @shypie_privacy/magpie-privacy-gate` loads and lists
+      `gateway middleware · onRequest, onProvider · onUsage` (verified 2026-11-03, npm 0.1.0; the
+      `0.1.1` code was loaded from the folder and tested live before approval).
+- [x] `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` installs the bundle and adds
+      it to `dsh.profile.bundles` (verified 2026-11-03 in the `headless` and `desktop` profiles; a
+      two-turn DeepSeek session ran through the live Magpie gateway).
+- [x] The MIT license is in all four npm packuments.
+- [x] The `files` allowlists were re-checked with `npm pack --dry-run` before publishing.
+- [x] The Magpie registry PR is open (#685).
+- [ ] The Magpie registry listing is merged.
+- [ ] The DSH catalog entry is submitted (after 2026-11-04 08:20 UTC) and merged.
 
-1. Copy [`marketplace/dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml`](../marketplace/dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml)
-   to `data/plugins/` in that repository and open a pull request. One file per plugin; the READMEs
-   there are generated and must not be edited by hand.
-2. The `url`/`name` pair uses the documented monorepo form: the URL points at the subdirectory and
-   the name is `owner/repo#subpackage`.
-3. Requirements the submission is checked against:
-   - the package declares `dsh.bundle` — yes, `plugins/dsh-privacy-gate/package.json`, together with
-     its `cordis.patch.yml` next door;
-   - the repository is at least **1 day old** — the entry can only be opened after that;
-   - the repository carries the **`dsh-plugin`** topic — set on `siml1169/ShyPie`;
-   - the description is accurate — it names exactly the four tools the bundle registers and the two
-     guards, nothing more.
+## 5. Version strategy
 
-## 4. After the first publish
-
-- [ ] `magpie plugin add @shypie_privacy/magpie-privacy-gate` loads, is listed, and shows hook counts after a
-      request (Settings → Plugins).
-- [ ] `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` appends the bundle to
-      `dsh.profile.bundles` and the patch row activates in a new session.
-- [ ] Both listings render with the MIT license from [`LICENSE`](../LICENSE).
-- [ ] Re-check the `files` allowlists after any layout change: `npm pack --dry-run`.
-
-## 5. Version bumps
-
-Bump the four `version` fields together while the packages are coupled by the interface contract in
-[`docs/interface-contract.md`](interface-contract.md), commit, tag `v<version>`, then `npm publish` in
-the same order as §1. The Magpie registry entry and the DSH catalog read the version from npm, so
-neither file changes on a patch release.
+`0.1.0` was the coordinated release of all four packages. `0.1.1` is a Magpie-only hotfix: the DSH
+bundle, `pii-core` and `local-extract` are unchanged, so they stay at `0.1.0` while the middleware
+carries the vendor-signature, option and `ctx.reject` fixes. The next coordinated release realigns all
+four version fields, the interface contract in
+[`docs/interface-contract.md`](interface-contract.md), and the tag. The Magpie registry entry and the
+DSH catalog read the version from npm, so neither submission file changes on a patch release.

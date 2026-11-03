@@ -45,7 +45,8 @@ magpie plugin add ./plugins/magpie-privacy-gate
 magpie plugin                                    # the plugin is listed; it is middleware only (no Bun host)
 ```
 
-From npm the same plugin is `magpie plugin add @shypie_privacy/magpie-privacy-gate` (0.1.1); the package
+From npm the same plugin is `magpie plugin add @shypie_privacy/magpie-privacy-gate` (0.1.0; the
+`0.1.1` fix is staged for npm's 2FA approval); the package
 name is what the registry entry in
 [`marketplace/magpie/registry-entry.json`](../../marketplace/magpie/registry-entry.json) lists.
 
