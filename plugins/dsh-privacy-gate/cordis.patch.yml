@@ -10,7 +10,7 @@
 # cordis-composition-reference/SKILL.md:15).
 - insert:
     - id: privacy-gate
-      name: '@privacy/dsh-privacy-gate'
+      name: '@shypie/dsh-privacy-gate'
       config:
         allowPaths: []
         detectors: []

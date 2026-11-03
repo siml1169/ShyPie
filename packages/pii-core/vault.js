@@ -1,7 +1,7 @@
 /**
- * @privacy/pii-core/vault — Node-only encrypted placeholder vault.
+ * @shypie/pii-core/vault — Node-only encrypted placeholder vault.
  *
- * Contract: privacy-first-workflow/docs/interface-contract.md.
+ * Contract: ShyPie/docs/interface-contract.md.
  *   createVault({ dir }) -> { put(token, kind, value), get(token), save(redactor),
  *                              load(), path, wipe() }
  *

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// @privacy/local-extract — fail-closed CLI for local document extraction.
+// @shypie/local-extract — fail-closed CLI for local document extraction.
 //
 //   node cli.js --json <pdf|ocr|doc|image|auto> <path> [--max-chars N]
 //               [--pages A-B] [--lang deu+eng] [--no-ocr]

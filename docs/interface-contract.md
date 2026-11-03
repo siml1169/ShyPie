@@ -55,11 +55,11 @@ docs/
   research/               evidence notes (DSH seams, Magpie docs, detectors, engine matrix,
                           background, security review)
 packages/
-  pii-core/               @privacy/pii-core
-  local-extract/          @privacy/local-extract
+  pii-core/               @shypie/pii-core
+  local-extract/          @shypie/local-extract
 plugins/
-  dsh-privacy-gate/       @privacy/dsh-privacy-gate
-  magpie-privacy-gate/    @privacy/magpie-privacy-gate
+  dsh-privacy-gate/       @shypie/dsh-privacy-gate
+  magpie-privacy-gate/    @shypie/magpie-privacy-gate
 config/                   example Magpie middleware options
 tests/                    end-to-end suite and the one-command runner
 ```

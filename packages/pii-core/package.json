@@ -1,9 +1,34 @@
 {
-  "name": "@privacy/pii-core",
+  "name": "@shypie/pii-core",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Deterministic local PII detectors and keyed placeholders for the privacy-first workflow (zero dependencies, no Node built-ins in index.js).",
+  "keywords": [
+    "pii",
+    "privacy",
+    "redaction",
+    "masking",
+    "placeholder",
+    "anonymization",
+    "detection",
+    "gdpr",
+    "zero-dependency",
+    "shypie"
+  ],
+  "license": "MIT",
+  "author": "siml1169",
+  "homepage": "https://github.com/siml1169/ShyPie#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siml1169/ShyPie.git",
+    "directory": "packages/pii-core"
+  },
+  "bugs": {
+    "url": "https://github.com/siml1169/ShyPie/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./index.js",
   "exports": {
     ".": "./index.js",

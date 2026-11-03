@@ -151,7 +151,7 @@ and (c) never walking `tools` / `functions` / `tool_choice` / `response_format` 
 | C6 | Where per-middleware stats show up | "Settings → Plugins shows each middleware's hooks, how many calls it had, the average time each took and how many failed, with the last error." | S1 |
 | C7 | `console.log` goes to magpie's log, capped | "`console.log` (into magpie's log, at most 60 lines a minute)" | S1 |
 
-**UNVERIFIED (C3):** whether the short name for `@privacy/magpie-privacy-gate` is
+**UNVERIFIED (C3):** whether the short name for `@shypie/magpie-privacy-gate` is
 `privacy-gate` or `magpie-privacy-gate`. The docs only give one example (prefix `middleware-`
 stripped). The README shows the full package name as canonical and both shorter forms as
 alternatives to try; `magpie plugin options <name> off` and `magpie plugin` (list) resolve it

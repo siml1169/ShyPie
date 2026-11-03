@@ -1,7 +1,7 @@
 /**
  * The three DSH gates, as pure decision shapers plus one thin installer.
  *
- * Seam map (evidence: `privacy-first-workflow/docs/research/dsh-hooks.md`):
+ * Seam map (evidence: `ShyPie/docs/research/dsh-hooks.md`):
  *   Gate 1  tools/post-execute  (waterfall)  — redact every tool result before
  *           the loop appends `tool/result`; block binary payloads and
  *           unmaskable media; `next()` when nothing changes.

@@ -1,4 +1,4 @@
-// @privacy/local-extract — local-only extraction primitives.
+// @shypie/local-extract — local-only extraction primitives.
 //
 // Zero npm dependencies. No network I/O of any kind (invariant I1). Every external
 // process is spawned with a timeout and a bounded output capture. Nothing here ever

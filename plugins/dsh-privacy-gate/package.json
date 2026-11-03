@@ -1,9 +1,42 @@
 {
-  "name": "@privacy/dsh-privacy-gate",
+  "name": "@shypie/dsh-privacy-gate",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Ingest-time PII masking and local document extraction for DeepSeek Harness",
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "dsh-bundle",
+    "cordis",
+    "privacy",
+    "pii",
+    "redaction",
+    "masking",
+    "security",
+    "local-first",
+    "ocr",
+    "document-extraction",
+    "shypie"
+  ],
+  "license": "MIT",
+  "author": "siml1169",
+  "homepage": "https://github.com/siml1169/ShyPie#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siml1169/ShyPie.git",
+    "directory": "plugins/dsh-privacy-gate"
+  },
+  "bugs": {
+    "url": "https://github.com/siml1169/ShyPie/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20",
+    "dsh": ">=0.2.0 <0.3.0"
+  },
   "exports": {
     ".": "./index.js",
     "./package.json": "./package.json",

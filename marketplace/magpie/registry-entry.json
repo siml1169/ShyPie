@@ -1,0 +1,9 @@
+{
+  "package": "@shypie/magpie-privacy-gate",
+  "name": "ShyPie Privacy Gate",
+  "kind": "middleware",
+  "summary": {
+    "en": "Structural egress firewall: turns away image, file and audio parts, encoded blobs and models outside the allowlist whenever magpie cannot mask the content locally, and fails closed on anything it cannot inspect.",
+    "zh": "结构化出口防火墙：凡是 magpie 无法在本地掩码的图片、文件与音频内容、编码数据块，以及不在允许列表中的模型，一律拒绝；无法检查的内容按失败关闭处理。"
+  }
+}

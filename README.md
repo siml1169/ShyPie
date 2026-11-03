@@ -1,4 +1,4 @@
-# Privacy-first workflow for DeepSeek Harness + Magpie
+# ShyPie — privacy-first workflow for DeepSeek Harness + Magpie
 
 > Keep PII on your machine: documents are converted to text **locally**, recognised PII is replaced
 > with stable placeholders **before it can enter the session log**, and anything that cannot be
@@ -7,12 +7,16 @@
 This repository is a reference implementation of a two-plugin combo for
 [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) and [Magpie](https://usemagpie.ai):
 
-| Component | Role |
-|---|---|
-| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
-| [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate) | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
-| [`packages/pii-core`](packages/pii-core) | Zero-dependency detector + keyed-placeholder library shared by both plugins |
-| [`packages/local-extract`](packages/local-extract) | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
+| Component | npm package | Role |
+|---|---|---|
+| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
+| [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate) | `@shypie/magpie-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
+| [`packages/pii-core`](packages/pii-core) | `@shypie/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
+| [`packages/local-extract`](packages/local-extract) | `@shypie/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
+
+The two plugins are prepared for the **Magpie** and **DeepSeek Harness** plugin markets; they are
+not published yet. Package metadata, the MIT license, and both marketplace submission files are in
+place — [docs/publish.md](docs/publish.md) is the checklist.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
 documented precisely in [docs/design.md](docs/design.md) and summarised below.
@@ -90,12 +94,17 @@ model output (placeholders) ─► privacy_rehydrate ─► local artifact
 
 ## Quick start
 
-1. Install the Magpie middleware — see [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate/README.md).
+Nothing is published yet, so install from this checkout today:
+
+1. Install the Magpie middleware from the folder — see [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate/README.md).
 2. Install the DSH bundle through the plugin manager — see [`docs/install.md`](docs/install.md).
 3. In Magpie, enable masking under **Settings → Privacy** (text half of the combo).
 4. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
 
-Both plugins are reversible; no profile file is edited by hand.
+Both plugins are reversible; no profile file is edited by hand. Once the packages are on npm, the
+same steps become `magpie plugin add @shypie/magpie-privacy-gate` and
+`dsh plugin --profile <name> add @shypie/dsh-privacy-gate`; [docs/publish.md](docs/publish.md) covers
+that path and the two marketplace listings.
 
 ## Verify
 
@@ -123,6 +132,7 @@ docs/
   design.md               design, threat model, gates, fail-closed matrix, limitations
   install.md              installation and verification guide
   interface-contract.md   frozen API / CLI / tool interfaces
+  publish.md              npm publish order + Magpie and DSH marketplace listings
   research/               evidence: DSH seams (path:line), Magpie hook docs (URL + quote),
                           detector catalogue, measured engine matrix, background, security review
 packages/
@@ -131,8 +141,10 @@ packages/
 plugins/
   dsh-privacy-gate/       DeepSeek Harness bundle
   magpie-privacy-gate/    Magpie gateway middleware
+marketplace/              submission files for the two plugin markets (not yet submitted)
 config/                   example Magpie middleware options
 tests/                    end-to-end tests and the one-command runner
+LICENSE                   MIT
 ```
 
 ## Documentation
@@ -140,13 +152,16 @@ tests/                    end-to-end tests and the one-command runner
 - [Design](docs/design.md) — the full design and threat model
 - [Install](docs/install.md) — installation, configuration, verification
 - [Interface contract](docs/interface-contract.md) — the stable interfaces both plugins implement
+- [Publish](docs/publish.md) — npm release order and the Magpie / DSH marketplace listings
 - [Research](docs/research/) — evidence notes, measurements and the [security review](docs/research/security-review.md)
 - Component READMEs: [pii-core](packages/pii-core/README.md), [local-extract](packages/local-extract/README.md),
   [DSH gate](plugins/dsh-privacy-gate/README.md), [Magpie gate](plugins/magpie-privacy-gate/README.md)
 
 ## Status
 
-Reference implementation, tested on one Windows machine. The **live wiring** (loading the bundle into
+Reference implementation, tested on one Windows machine. **Not published:** the npm packages, the
+Magpie registry entry and the DSH catalog entry are prepared but unsubmitted — see
+[docs/publish.md](docs/publish.md). The **live wiring** (loading the bundle into
 a real DSH profile, loading the middleware into a real Magpie gateway) is written against the
 documented APIs and the source evidence in [docs/research](docs/research/), but was not exercised in
 this repository's test suite — exercising it changes profile-wide state. What is and is not verified

@@ -1,4 +1,4 @@
-// CLI integration tests for @privacy/local-extract.
+// CLI integration tests for @shypie/local-extract.
 //
 // Fixtures are synthetic and generated locally by make-fixtures.mjs (I9).
 // Every assertion checks the frozen docs/interface-contract.md JSON shape / exit codes /

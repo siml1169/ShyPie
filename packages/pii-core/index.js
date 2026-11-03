@@ -1,7 +1,7 @@
 /**
- * @privacy/pii-core — deterministic local PII detectors + keyed placeholders.
+ * @shypie/pii-core — deterministic local PII detectors + keyed placeholders.
  *
- * Contract: privacy-first-workflow/docs/interface-contract.md. Public API:
+ * Contract: ShyPie/docs/interface-contract.md. Public API:
  *   VERSION, KINDS, createRedactor(config), tokenFor(key, kind, value),
  *   findPlaceholders(text), isPlaceholderShaped(text)
  *

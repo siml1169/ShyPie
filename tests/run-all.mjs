@@ -1,4 +1,4 @@
-// Run every test suite in the privacy-first workflow and print one summary.
+// Run every test suite in ShyPie and print one summary.
 // Usage: node tests/run-all.mjs [--verbose]
 import { spawnSync } from 'node:child_process'
 import { existsSync, readdirSync, statSync } from 'node:fs'
@@ -63,7 +63,7 @@ for (const [name, dir] of suites) {
   }
 }
 
-console.log('\n===== privacy-first workflow: test summary =====')
+console.log('\n===== ShyPie: test summary =====')
 for (const r of rows) console.log(`${r.status.padEnd(9)} ${r.name.padEnd(20)} ${r.detail}`)
 console.log(failed === 0 ? '\nall suites passed' : `\n${failed} suite(s) failed`)
 process.exit(failed === 0 ? 0 : 1)

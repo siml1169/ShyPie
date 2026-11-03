@@ -1,4 +1,4 @@
-# @privacy/local-extract
+# @shypie/local-extract
 
 Local-only document → text extraction for the privacy-first workflow. Zero npm
 dependencies, no network I/O, no cloud fallback (invariant I1). When local

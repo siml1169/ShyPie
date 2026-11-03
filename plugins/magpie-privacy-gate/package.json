@@ -1,22 +1,42 @@
 {
-  "name": "@privacy/magpie-privacy-gate",
+  "name": "@shypie/magpie-privacy-gate",
   "version": "0.1.0",
-  "private": true,
-  "description": "magpie gateway middleware: structural egress firewall. Blocks content parts magpie cannot mask (images, files, documents, audio, video) for models that are not allowlisted as local, blocks encoded blobs smuggled through text, enforces a model allowlist, and fails closed on anything it cannot inspect.",
   "type": "module",
+  "description": "magpie gateway middleware: structural egress firewall. Blocks content parts magpie cannot mask (images, files, documents, audio, video) for models that are not allowlisted as local, blocks encoded blobs smuggled through text, enforces a model allowlist, and fails closed on anything it cannot inspect.",
+  "keywords": [
+    "magpie",
+    "magpie-plugin",
+    "magpie-middleware",
+    "llm-gateway",
+    "gateway-middleware",
+    "privacy",
+    "pii",
+    "dlp",
+    "guardrails",
+    "security",
+    "shypie"
+  ],
+  "license": "MIT",
+  "author": "siml1169",
+  "homepage": "https://github.com/siml1169/ShyPie#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siml1169/ShyPie.git",
+    "directory": "plugins/magpie-privacy-gate"
+  },
+  "bugs": {
+    "url": "https://github.com/siml1169/ShyPie/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "files": [
     "gate.middleware.js",
     "README.md"
   ],
-  "keywords": [
-    "magpie",
-    "magpie-middleware",
-    "privacy"
-  ],
-  "license": "MIT",
   "magpie": {
     "middleware": "./gate.middleware.js",
-    "name": "Privacy gate",
+    "name": "ShyPie privacy gate",
     "options": {
       "allowModels": [],
       "localModels": [],

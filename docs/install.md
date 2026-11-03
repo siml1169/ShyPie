@@ -7,7 +7,7 @@ policy and examples assume Windows); the libraries themselves are portable.
 Before you start, clone the repository somewhere stable and set a variable for it:
 
 ```powershell
-$repo = "C:\path\to\privacy-first-workflow"
+$repo = "C:\path\to\ShyPie"
 ```
 
 ## 0. Prerequisites
@@ -40,6 +40,10 @@ The option names, defaults and their meaning are documented in
 [`plugins/magpie-privacy-gate/README.md`](../plugins/magpie-privacy-gate/README.md). A copy of the
 example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
+> Not published to npm yet: `magpie plugin add @shypie/magpie-privacy-gate` replaces the folder path
+> once it is ([docs/publish.md](publish.md)). A folder is loaded where it is, so neither form copies
+> anything into the Magpie config directory.
+
 Then turn text masking on — **Settings → Privacy**, or `~/.config/magpie/settings.json`:
 
 ```json
@@ -68,6 +72,10 @@ Install the bundle **through the plugin manager**, never by editing the profile 
 - ask the DSH agent to call `plugin_manager` with `action: "install_bundle"` and
   `target: "$repo/plugins/dsh-privacy-gate"` (absolute path), or
 - install it from the Plugins page if the build exposes a folder install.
+
+Once the bundle is on npm, `dsh plugin --profile <name> add @shypie/dsh-privacy-gate` installs the
+same bundle without a checkout; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older
+host refuses it instead of failing at load time.
 
 Then set the bundle row's config (the `cordis.patch.yml` config layer). A minimal configuration:
 

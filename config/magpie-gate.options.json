@@ -1,5 +1,5 @@
 {
-  "$comment": "Magpie gateway-middleware options for @privacy/magpie-privacy-gate. Set with: magpie plugin options privacy-gate '<this file, minus the $comment>'. Keys are the ones gate.middleware.js documents at the top of the file.",
+  "$comment": "Magpie gateway-middleware options for @shypie/magpie-privacy-gate. Set with: magpie plugin options privacy-gate '<this file, minus the $comment>'. Keys are the ones gate.middleware.js documents at the top of the file.",
   "localModels": [
     "ollama/*",
     "lmstudio/*",

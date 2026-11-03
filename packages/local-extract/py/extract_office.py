@@ -1,4 +1,4 @@
-"""Local OOXML text extraction helper for @privacy/local-extract.
+"""Local OOXML text extraction helper for @shypie/local-extract.
 
 Usage: python extract_office.py <docx|xlsx|pptx> <input-path> <output-txt>
 

@@ -4,7 +4,7 @@
  * Why ingestion (and not egress): DSH deep-freezes the outbound LLM request and
  * derives it as a pure fold of the session log, so no plugin can rewrite the
  * request on its way out (`dsh-agent-loop` buildRequest,
- * `privacy-first-workflow/docs/research/dsh-hooks.md` §4). Masking therefore happens
+ * `ShyPie/docs/research/dsh-hooks.md` §4). Masking therefore happens
  * before bytes become model-visible events:
  *
  *   Gate 1  tools/post-execute      redact every tool result before it is logged

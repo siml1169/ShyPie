@@ -1,4 +1,4 @@
-# WinRT OCR adapter for @privacy/local-extract.
+# WinRT OCR adapter for @shypie/local-extract.
 #
 # Runs entirely offline: Windows.Media.Ocr is a local OS component. No network,
 # no telemetry, no package downloads. Invoked by engines.js with a bounded

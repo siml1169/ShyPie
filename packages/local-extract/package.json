@@ -1,14 +1,47 @@
 {
-  "name": "@privacy/local-extract",
+  "name": "@shypie/local-extract",
   "version": "0.1.0",
-  "private": true,
   "type": "module",
   "description": "Local-only document extraction (PDF text layer, local OCR, OOXML) with fail-closed blocking. Zero npm dependencies, no network.",
+  "keywords": [
+    "pdf",
+    "ocr",
+    "docx",
+    "pptx",
+    "xlsx",
+    "document-extraction",
+    "local-first",
+    "offline",
+    "privacy",
+    "zero-dependency",
+    "shypie"
+  ],
+  "license": "MIT",
+  "author": "siml1169",
+  "homepage": "https://github.com/siml1169/ShyPie#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/siml1169/ShyPie.git",
+    "directory": "packages/local-extract"
+  },
+  "bugs": {
+    "url": "https://github.com/siml1169/ShyPie/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "files": [
+    "cli.js",
+    "engines.js",
+    "ps",
+    "py",
+    "README.md"
+  ],
   "exports": {
     ".": "./engines.js"
   },
   "bin": {
-    "privacy-local-extract": "./cli.js"
+    "shypie-extract": "./cli.js"
   },
   "scripts": {
     "test": "node --test test/cli.test.mjs test/engines.test.mjs test/fixtures.test.mjs",
