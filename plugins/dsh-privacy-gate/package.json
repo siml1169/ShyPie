@@ -59,6 +59,15 @@
   "dependencies": {
     "@shypie_privacy/local-extract": "^0.1.0"
   },
+  "peerDependencies": {
+    "@deepseek-ai/schemastery": "^3.18.0",
+    "@deepseek-ai/dsh-settings": ">=0.1.0-rc.6 <0.2.0"
+  },
+  "peerDependenciesMeta": {
+    "@deepseek-ai/dsh-settings": {
+      "optional": true
+    }
+  },
   "dsh": {
     "bundle": {
       "patch": "./cordis.patch.yml"

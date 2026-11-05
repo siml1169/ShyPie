@@ -312,7 +312,7 @@ export function buildToolDefinitions(deps) {
             scope: { type: 'string' },
             enabled: { type: 'boolean' },
             explicit: { type: 'boolean' },
-            sessionId: { type: ['string', 'null'] },
+            sessionId: { type: 'string' },
           },
           required: ['scope', 'enabled', 'explicit', 'sessionId'],
           additionalProperties: false,
@@ -347,7 +347,8 @@ export function buildToolDefinitions(deps) {
           registry.setEnabled(sessionId, false)
         }
         audit.record({ kind: `session-${action}`, length: 0, count: 0, path_hash: '' })
-        return registry.status(sessionId)
+        const status = registry.status(sessionId)
+        return { ...status, sessionId: typeof status.sessionId === 'string' ? status.sessionId : '' }
       },
     },
   ]

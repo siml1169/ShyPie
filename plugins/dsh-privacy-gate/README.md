@@ -48,8 +48,10 @@ plugin_manager  { action: "install_bundle", target: "<abs>/plugins/dsh-privacy-g
 ```
 
 The bundle declares `dsh.bundle.patch`; its patch inserts one Host row
-(`privacy-gate`). Packages shipped with dsh resolve from the dsh installation,
-so no dependencies are declared. Do **not** hand-edit the profile's
+(`privacy-gate`). It declares `@deepseek-ai/schemastery` and `@deepseek-ai/dsh-settings` as **peer
+dependencies** on purpose: the host resolves those from the running installation, and without the
+declaration a fresh profile cannot resolve `@deepseek-ai/schemastery` from a linked checkout at
+all — the entry then fails to import. Do **not** hand-edit the profile's
 `package.json`/`cordis.patch.yml`, and do not copy `vendor/` state between
 installs — run the script.
 

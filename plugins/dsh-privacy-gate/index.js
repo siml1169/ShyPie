@@ -36,8 +36,9 @@ import { buildLiveRowConfig, liveFromConfig, SETTINGS_NAMESPACE } from './lib/se
 /** Plugin name shown in diagnostics. */
 export const name = 'privacy-gate'
 
-/** Services this plugin needs; without `tools` it stays inactive. */
-export const inject = ['tools']
+/** Services this plugin needs; without `tools` it stays inactive. `settings` is core (`dsh-base`)
+ * and backs the live configuration layer, so the plugin waits for it rather than probing. */
+export const inject = ['tools', 'settings']
 
 /** Directory of this package (the bundle root). */
 const HERE = dirname(fileURLToPath(import.meta.url))

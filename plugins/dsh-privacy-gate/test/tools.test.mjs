@@ -207,6 +207,21 @@ function sessionTool(configOverrides = {}) {
 
 const exec = { agent: { id: 's-1' } }
 
+test('no tool schema uses a type array (DSH rejects them)', () => {
+  const { tools } = setup()
+  const walk = (node, path) => {
+    if (node === null || typeof node !== 'object' || Array.isArray(node)) return
+    if (Object.hasOwn(node, 'type')) {
+      assert.equal(typeof node.type, 'string', `${path}.type must be a single string, not ${JSON.stringify(node.type)}`)
+    }
+    for (const [key, child] of Object.entries(node)) walk(child, `${path}.${key}`)
+  }
+  for (const tool of tools) {
+    walk(tool.parameters, `${tool.name}.parameters`)
+    walk(tool.output.schema, `${tool.name}.output.schema`)
+  }
+})
+
 test('privacy_session reports and can enable the current session', async () => {
   const { tool, state } = sessionTool()
   const before = await tool.execute({ action: 'status' }, exec)
