@@ -111,11 +111,22 @@ test('the llm/stream listener returns a terminal error stream before next', asyn
   assert.equal(chunks.length, 1)
   assert.equal(chunks[0].type, 'finish')
   assert.equal(chunks[0].reason.kind, 'error')
-  assert.equal(chunks[0].reason.failure.message, 'privacy-gate: egress blocked (BLOB)')
+  assert.equal(chunks[0].reason.failure.message, 'privacy-gate: egress blocked (BLOB); an earlier message in this session still holds content the gate cannot mask — start a new session (the log is append-only)')
   assert.equal(chunks[0].reason.failure.code, EGRESS_BLOCKED_CODE)
   assert.equal(audit.records.length, 1)
   assert.equal(audit.records[0].kind, 'egress-blocked')
   assert.equal(JSON.stringify(audit.records[0]).includes('BLOB'), false)
+})
+
+test('a media rejection points at the local extraction path', async () => {
+  const guard = createEgressGuard(deps())
+  const stream = guard(request([{ role: 'user', content: [{ type: 'image' }] }]), () => {})
+  const chunks = []
+  for await (const chunk of stream) chunks.push(chunk)
+  assert.equal(
+    chunks[0].reason.failure.message,
+    'privacy-gate: egress blocked (MEDIA_IMAGE); an attachment cannot be masked locally — extract it with privacy_ocr and send the text',
+  )
 })
 
 test('the llm/stream listener calls next for an allowed request', () => {

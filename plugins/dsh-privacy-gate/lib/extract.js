@@ -85,6 +85,9 @@ export function parseExtractOutput(run) {
  * @returns {Promise<object>} `parseExtractOutput` result.
  */
 export async function runExtractCli(options) {
+  if (typeof options.cliPath !== 'string' || options.cliPath.length === 0) {
+    throw new Error('privacy-gate: extractCli is not configured and @shypie_privacy/local-extract is not installed; set extractCli to a local-extract cli.js path')
+  }
   if (!existsSync(options.cliPath)) {
     throw new Error(`privacy-gate: local extractor CLI not found at ${options.cliPath}; document stays local and unread`)
   }

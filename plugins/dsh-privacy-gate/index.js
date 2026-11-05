@@ -18,7 +18,8 @@
  * README.md for the install/verify steps.
  */
 import z from '@deepseek-ai/schemastery'
-import { writeFileSync, mkdirSync } from 'node:fs'
+import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { homedir } from 'node:os'
@@ -48,10 +49,27 @@ const PRIVATE_HOME = process.env.DSH_HOME
   ? join(process.env.DSH_HOME, 'privacy')
   : join(homedir(), '.dsh', 'privacy')
 
-/** Deployment defaults: the extractor is resolved relative to this checkout if unset. */
+/**
+ * Deployment defaults: the extractor is resolved from this checkout when the bundle is
+ * installed by folder, and from the installed `@shypie_privacy/local-extract` package when
+ * it is installed from npm — `HERE/../..` is the profile's `node_modules` in that case, so
+ * the sibling path does not exist. An empty result makes the tools fail with a message that
+ * names the missing setting instead of spawning a path that cannot exist.
+ */
 const WORKFLOW_ROOT = join(HERE, '..', '..')
+
+function defaultExtractCli() {
+  const sibling = join(WORKFLOW_ROOT, 'packages', 'local-extract', 'cli.js')
+  if (existsSync(sibling)) return sibling
+  try {
+    return createRequire(import.meta.url).resolve('@shypie_privacy/local-extract/cli.js')
+  } catch {
+    return ''
+  }
+}
+
 const DEPLOYMENT_DEFAULTS = Object.freeze({
-  extractCli: join(WORKFLOW_ROOT, 'packages', 'local-extract', 'cli.js'),
+  extractCli: defaultExtractCli(),
   // Never inside the repository: these hold plaintext and a secret key.
   artifactDir: join(PRIVATE_HOME, 'artifacts'),
   keyFile: join(PRIVATE_HOME, 'placeholder.key'),

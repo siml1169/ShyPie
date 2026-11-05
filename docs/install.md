@@ -96,7 +96,10 @@ Notes:
 - `allowPaths` is the **only** set of directories a document may be extracted or read from.
   `[]` means no document is readable (fail closed), so set it before using `privacy_extract`.
 - `extractCli` should point at a stable copy of `packages/local-extract/cli.js` (copy that folder
-  somewhere outside the checkout if the agent should not read the repository).
+  somewhere outside the checkout if the agent should not read the repository). Leave it empty to let
+  the bundle resolve it: the sibling checkout first, then the installed
+  `@shypie_privacy/local-extract` package (`0.2.1+`). If neither exists the tools fail with an error
+  that names the setting.
 - `placeholderKey` and `artifactDir` default to `%USERPROFILE%\.dsh\privacy\` — never put them in
   the repository. The key file is created with owner-only permissions.
 - Full option reference: [`plugins/dsh-privacy-gate/README.md`](../plugins/dsh-privacy-gate/README.md).

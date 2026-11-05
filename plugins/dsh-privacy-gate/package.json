@@ -1,6 +1,6 @@
 {
   "name": "@shypie_privacy/dsh-privacy-gate",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "type": "module",
   "description": "Ingest-time PII masking, local document extraction and a fail-closed egress guard for DeepSeek Harness",
   "keywords": [
@@ -54,6 +54,9 @@
   "scripts": {
     "vendor": "node scripts/vendor-core.mjs",
     "test": "node --test \"test/*.test.mjs\""
+  },
+  "dependencies": {
+    "@shypie_privacy/local-extract": "^0.1.0"
   },
   "dsh": {
     "bundle": {

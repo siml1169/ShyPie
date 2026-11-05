@@ -47,9 +47,37 @@ function blocked(reason, stats) {
   }
 }
 
+/**
+ * Actionable suffix for a rejection reason. Never names content, only what to do:
+ * the bare code on its own leaves a user unable to tell a live leak from an old log.
+ * @param {string} reason
+ * @returns {string}
+ */
+function hintFor(reason) {
+  if (reason === 'PII' || reason === 'BLOB') {
+    return '; an earlier message in this session still holds content the gate cannot mask — start a new session (the log is append-only)'
+  }
+  if (reason.startsWith('MEDIA_')) {
+    return '; an attachment cannot be masked locally — extract it with privacy_ocr and send the text'
+  }
+  if (reason === 'PROVIDER' || reason === 'MODEL') {
+    return '; the provider/model is outside egressAllowProviders/egressAllowModels'
+  }
+  if (reason === 'LIMIT_CHARS' || reason === 'LIMIT_NODES') {
+    return '; raise egressMaxChars/egressMaxNodes for this deployment'
+  }
+  if (reason === 'REDACTOR_UNAVAILABLE' || reason === 'SCAN_FAILED') {
+    return '; local redaction is unavailable — check the placeholder key and the vendored pii-core'
+  }
+  if (reason === 'UNKNOWN_BLOCK') {
+    return '; the host sent a content block this gate cannot inspect'
+  }
+  return ''
+}
+
 function egressFailure(reason) {
   return Object.freeze({
-    message: `privacy-gate: egress blocked (${reason})`,
+    message: `privacy-gate: egress blocked (${reason})${hintFor(reason)}`,
     code: EGRESS_BLOCKED_CODE,
   })
 }

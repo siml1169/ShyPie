@@ -118,6 +118,53 @@ pass was ~107 ms and later requests with one new message ~0.1 ms in Node 24 with
 the key file is unusable, a redactor throws, or a document path is outside `allowPaths`, the gates
 block tool results, reject prompt steps, and the four tools throw. Nothing falls through.
 
+### `PRIVACY_EGRESS_BLOCKED` in a session that predates the gate
+
+The request is a fold of the append-only session log, so **one message the gate cannot mask blocks
+every later turn in that session** — including a message written before the bundle was installed.
+This is the documented "start a new session after installing" rule, hardened into a hard stop. The
+error names the reason and says what to do (`… (PII); an earlier message in this session still holds
+content the gate cannot mask — start a new session (the log is append-only)`).
+
+There is no override, by design. Recovering means leaving the poisoned history behind:
+
+- start a **new** session (not a fork — a fork reseeds the old events);
+- if the old log holds plaintext, delete or quarantine it rather than keeping it around:
+  `%USERPROFILE%\.dsh\sessions\<project>\<session-id>\session.v4.jsonl.zstd`;
+- a session whose plaintext came from before the gate was installed cannot be repaired in place;
+  the gate never rewrites existing events.
+
+If the rejection reason is not `PII`/`BLOB`, the hint on the error names the actual remedy
+(`MEDIA_*` → extract with `privacy_ocr`, `PROVIDER`/`MODEL` → allowlist, `LIMIT_*` → raise the
+budget).
+
+## Troubleshooting the extractor
+
+`privacy_extract` / `privacy_ocr` / `privacy_scan` shell out to `packages/local-extract/cli.js`. When
+the row sets no `extractCli`, the default is resolved in this order:
+
+1. the sibling checkout (`<bundle>/../../packages/local-extract/cli.js`) — folder installs;
+2. the installed `@shypie_privacy/local-extract` package — npm installs (`0.2.1+` declares it as a
+   dependency and the package exports `./cli.js`);
+3. nothing — the tools then fail with *"extractCli is not configured and
+   @shypie_privacy/local-extract is not installed"* instead of spawning a path that cannot exist.
+
+Two other settings decide whether a document is readable at all: `allowPaths` (`[]` denies
+**every** path) and `maxExtractChars`. Set them in the row config and remember that a row `config`
+replaces the whole block, so restate the other keys:
+
+```yaml
+- id: privacy-gate
+  config:
+    allowPaths: ['C:\Users\<you>\Documents\privacy-work']
+    extractCli: 'C:\Users\<you>\Documents\ShyPie\packages\local-extract\cli.js'
+    detectors: []
+    personWords: []
+    blockNonTextResults: true
+    audit: { enabled: true, path: 'C:\Users\<you>\.dsh\privacy\audit.jsonl' }
+    placeholderKey: { file: 'C:\Users\<you>\.dsh\privacy\placeholder.key' }
+```
+
 ## Tools
 
 ```

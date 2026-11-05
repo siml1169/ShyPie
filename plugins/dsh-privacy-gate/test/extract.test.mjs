@@ -1,6 +1,6 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
-import { EXTRACT_MODES, buildExtractCommand, parseExtractOutput } from '../lib/extract.js'
+import { EXTRACT_MODES, buildExtractCommand, parseExtractOutput, runExtractCli } from '../lib/extract.js'
 
 const CLI = 'C:/workflow/packages/local-extract/cli.js'
 const PDF = 'C:/workflow/fixtures/invoice.pdf'
@@ -21,6 +21,13 @@ test('buildExtractCommand rejects an unknown mode or a missing path', () => {
   assert.throws(() => buildExtractCommand({ cliPath: CLI, mode: 'magic', filePath: PDF }), /unknown extraction mode/)
   assert.throws(() => buildExtractCommand({ cliPath: CLI, mode: 'pdf', filePath: '' }), /path is required/)
   assert.throws(() => buildExtractCommand({ cliPath: '', mode: 'pdf', filePath: PDF }), /extractCli is not configured/)
+})
+
+test('runExtractCli names the missing setting when no extractor path was resolved', async () => {
+  await assert.rejects(
+    runExtractCli({ cliPath: '', mode: 'pdf', filePath: PDF }),
+    /extractCli is not configured and @shypie_privacy\/local-extract is not installed/,
+  )
 })
 
 test('a successful extraction normalizes mode, engine, text, pages and warnings', () => {
