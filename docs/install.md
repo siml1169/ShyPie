@@ -102,9 +102,11 @@ Notes:
   that names the setting.
 - `placeholderKey` and `artifactDir` default to `%USERPROFILE%\.dsh\privacy\` — never put them in
   the repository. The key file is created with owner-only permissions.
-- An image you attach to a message is read by the local OCR engine and sent as masked text
-  (`imageParts: 'ocr'`, the default). Set `imageParts: 'block'` to reject such a step instead; both
-  fail closed when the bytes cannot be read.
+- An image or PDF/Office file you attach is read locally (OCR for images, pdftotext/Office
+  extraction for files) and replaced by text before it is logged (`imageParts: 'ocr'`,
+  `fileParts: 'extract'`). The default `textPolicy: 'filter'` keeps that text raw in the local
+  transcript; Magpie masks it outbound. Set `textPolicy: 'mask'` to redact locally, or
+  `imageParts`/`fileParts: 'block'` to reject the step.
 - Full option reference: [`plugins/dsh-privacy-gate/README.md`](../plugins/dsh-privacy-gate/README.md).
 
 > **Start a new session after installing.** The gate redacts at append time and never rewrites
