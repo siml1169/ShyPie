@@ -155,6 +155,7 @@ LICENSE                   MIT
 
 ## Documentation
 
+- [Project status](project_status.md) — the initial goal, goal → evidence alignment, and open items
 - [Design](docs/design.md) — the full design and threat model
 - [Install](docs/install.md) — installation, configuration, verification
 - [Interface contract](docs/interface-contract.md) — the stable interfaces both plugins implement
