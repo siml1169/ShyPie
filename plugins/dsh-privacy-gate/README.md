@@ -1,4 +1,4 @@
-# @shypie_privacy/dsh-privacy-gate
+# ShyPie Filter — @shypie_privacy/dsh-privacy-gate
 
 A DeepSeek Harness **Host bundle** that keeps PII on this machine. It masks at
 **ingestion**, because DSH's outbound request is a deep-frozen fold of the session
@@ -11,13 +11,13 @@ see it: anything un-maskable or uninspectable fails the turn.
 
 | Gate | Seam | Behaviour |
 |---|---|---|
-| 1 — tool ingress | `tools/post-execute` (waterfall) | Every tool result's text is masked with `pii-core` before the loop appends `tool/result`. A success result is sanitized through `value` so the logged `meta` is re-derived from masked data. Binary payloads (`BLOB`) and image/file content are **blocked**, never forwarded. `next()` is returned untouched when nothing changed. |
-| 2 — local extraction | `privacy_extract`, `privacy_ocr`, `privacy_scan` | PDF/Office/image text is produced by the local CLI (`packages/local-extract/cli.js`), masked here, and only then returned. A blocked conversion (`NO_LOCAL_OCR`, `NOT_A_DOCUMENT`, …) is a tool **error**, never content. |
-| 3 — user ingress | `agent/pre-step` (waterfall) | User text is masked and the masked messages are what the loop appends as `user/message`. An attached image is **read by the local OCR engine and replaced by masked text** (`imageParts: 'ocr'`, the default); when it cannot be read the whole step is **rejected**. `file`/`audio`/`video` parts are always rejected. |
+| 1 — tool ingress | `tools/post-execute` (waterfall) | Tool-result text is kept local by default (`textPolicy: filter`) or masked (`textPolicy: mask`). In filter mode the text is only scanned for unmaskable BLOB/media; in mask mode a success result is sanitized through `value` so the logged `meta` is re-derived from masked data. Binary payloads (`BLOB`) and image/file content are **blocked**, never forwarded. |
+| 2 — local extraction | `privacy_extract`, `privacy_ocr`, `privacy_scan` | PDF/Office/image text is produced by the local CLI (`packages/local-extract/cli.js`) and returned by the explicit tool. Tool results still follow `textPolicy`; a blocked conversion (`NO_LOCAL_OCR`, `NOT_A_DOCUMENT`, …) is a tool **error**, never content. |
+| 3 — user ingress | `agent/pre-step` (waterfall) | User text is kept local by default (`textPolicy: filter`) or masked (`mask`). An attached image is read by the local OCR engine; an attached PDF/Office file is read by the local extractor. The block is replaced by text before the message is logged (`imageParts: 'ocr'` / `fileParts: 'extract'`); when it cannot be read the whole step is **rejected**. Audio/video and blocked file parts are rejected. |
 | Guards | `ctx.tools.guard()` | Denies `read_image` outright, and denies `read` of binary/document extensions outside `allowPaths`. |
 | Round trip | `privacy_rehydrate` | Resolves placeholders **inside the tool**, writes the plaintext to a local artifact, and returns only `{ path, replaced, kinds }`. |
 | Extra (defensive) | `tools/ptc-dispatch-log` | Masks the durable log copy of `run_code` sub-dispatches. |
-| 4 — egress | `llm/stream` (waterfall, prepended) | Inspects the exact final request before adapter dispatch. Rejects image/file/audio/video blocks, unknown block types, surviving PII or BLOB, provider/model outside the allowlists, and over-budget requests. Throws before `next()`, so no HTTP request reaches Magpie. |
+| 4 — egress | `llm/stream` (waterfall, prepended) | Inspects the exact final request before adapter dispatch. Rejects image/file/audio/video blocks, unknown block types, BLOB, provider/model outside the allowlists, and over-budget requests. In `textPolicy: filter` it allows plaintext PII through the default Magpie-only provider, for Magpie to mask; `mask` also rejects PII. Returns a terminal error before `next()`, so no HTTP request reaches Magpie. |
 
 ## Files
 
@@ -27,7 +27,7 @@ lib/config.js        pure config resolution (frozen, unknown keys fail)
 lib/paths.js         pure path predicates used by the guard
 lib/redact.js        pure content/message/value masking over the pii-core API
 lib/gate.js          the gates as pure decision shapers + installGates()
-lib/ingest.js        reads a prompt attachment and replaces it with masked local OCR text
+lib/ingest.js        reads prompt image/PDF attachments and replaces them with local text
 lib/egress.js        final llm/stream egress guard (fail-closed before the adapter)
 lib/tools.js         the four ToolDefinitions (raw register() form)
 lib/extract.js       local-extract CLI adapter (spawn, no shell, no network)
@@ -74,7 +74,7 @@ blockNonTextResults: true     # block tool results containing image/file blocks
 artifactDir: ''               # defaults to ~/.dsh/privacy/artifacts (privacy_rehydrate target)
 toolTimeoutMs: 120000
 maxExtractChars: 200000
-egressAllowProviders: []     # [] = every provider; exact, * or prefix/* patterns
+egressAllowProviders: ['magpie*']  # filter mode defaults to the Magpie gateway only
 egressAllowModels: []        # [] = every model
 egressMaxChars: 2000000      # reject instead of passing an uninspectable request
 egressMaxNodes: 200000
@@ -83,21 +83,24 @@ sessionsPath: ''             # defaults to ~/.dsh/privacy/sessions.json
 ocrEngine: local             # local | vision | auto (vision is configuration-only today)
 ocrLang: ''                  # optional BCP-47-ish hint passed to the extractor (--lang)
 imageParts: ocr              # ocr (default) | block — what an attached image becomes
+fileParts: extract           # extract (default) | block — PDF/Office attachments
+textPolicy: filter           # filter (default: raw local text) | mask (redact locally)
 ```
 
 There is no `failClosed` switch: the gate always fails closed.
 
-### Attached images are read locally, not blocked
+### Attached images and PDFs are read locally, not forwarded
 
-An image you attach to a message reaches the agent as an `image` content block that references an
-opaque, content-addressed object (`ctx.attachments`). The gate reads those bytes, runs the **local**
-extractor in `ocr` mode (Windows OCR on this machine), masks the text with `pii-core`, and
-substitutes one text block for the image block:
+An image reaches the agent as an `image` content block and a PDF/Office file as a `file` block, both
+referencing an opaque content-addressed object (`ctx.attachments`). The gate reads the bytes, runs the
+**local** extractor (`ocr` for images, `auto` for files; Windows OCR / pdftotext on this machine), and
+substitutes one text block. In the default **filter** mode that text stays raw in the local
+transcript; in **mask** mode it is masked with `pii-core`. Example (filter):
 
 ```
 [privacy-gate: local OCR of an attached image/jpeg "scan.jpg", 113623 bytes, engine winrt-ocr]
 
-Rechnung {{IBAN_...}} …
+Rechnung DE89370400440532013000 …
 ```
 
 Why `agent/pre-step` and not the egress guard: the loop appends the decision's messages to the
@@ -107,8 +110,8 @@ be rejected, never rewritten.
 
 Fail-closed cases (the step is rejected, nothing is sent): no attachment service, an attachment that
 fails verification, an extractor that is missing or fails, OCR that returns nothing, a BLOB-shaped
-result, and `imageParts: 'block'`. `file`/`audio`/`video` parts have no local reader and are always
-rejected.
+result, and `imageParts: 'block'` / `fileParts: 'block'`. Audio/video and unknown file parts have no
+local reader and are rejected.
 
 Trade-off: the transcript keeps the OCR text, not the image. That is the point of the gate — if you
 need the model to *see* a picture, send it to a model you have declared local.
@@ -146,7 +149,7 @@ make a session ungated, never gated).
 
 ### Settings page — own route, not a settings namespace
 
-`lib/client.js` is the browser half: it registers a **Privacy gate** section
+`lib/client.js` is the browser half: it registers a **ShyPie Filter** section
 (`settings.section`, id `privacy-gate`, order 70) and renders `scope`, `allowPaths`, `extractCli`,
 `ocrEngine`, `visionProvider`/`visionModel` and `allowAgentDisable`.
 
@@ -208,8 +211,8 @@ The guard rejects:
 
 - `image`, `file`, `audio` or `video` content blocks;
 - unknown content-block types;
-- any surviving `pii-core` hit (PII or `BLOB`) in text, reasoning, tool-call arguments or
-  tool-result content;
+- `BLOB` in text, reasoning, tool-call arguments or tool-result content (always);
+- PII in those fields only when `textPolicy: 'mask'`; in `filter` mode Magpie masks it outbound;
 - a provider/model outside `egressAllowProviders` / `egressAllowModels`;
 - a request over `egressMaxChars` or `egressMaxNodes` (fail closed, never degrade).
 
@@ -218,11 +221,11 @@ declarations (`request.tools`, `request.toolHistory`) are schema, not conversati
 skipped. The existing ingestion gates still run first; this is the final assertion that they left
 nothing un-maskable.
 
-**PII policy (decided).** The guard **blocks any surviving PII**, even though Magpie's Privacy
-masking could mask text. DSH can target providers other than Magpie, and a PII hit at the final
-request means the DSH ingestion layer left something behind; delegating that to a downstream masker
-would silently weaken this boundary. When every DSH request is forced through Magpie with masking
-enabled this check is intentionally redundant and stricter, not wrong.
+**PII policy.** Default `filter` mode keeps PII in the local transcript and lets **Magpie's Privacy
+masking** handle it outbound. The egress provider allowlist defaults to `magpie*`, so a direct
+provider cannot receive raw text by accident. `mask` mode restores local placeholder masking and the
+egress guard also rejects surviving PII. Filter mode is a deliberate usability/security trade: the
+local log is readable, so protect the machine and keep Magpie masking enabled.
 
 **Incremental scan.** DSH request messages are frozen and reused across steps. The guard caches the
 message objects it has successfully inspected and scans only new messages; the first request pays
@@ -301,7 +304,7 @@ prompt-injected instruction must not be able to turn the gate off by itself. It 
 ## Tests
 
 ```
-node --test                     # 146 tests, no network, synthetic fixtures only
+node --test                     # 154 tests, no network, synthetic fixtures only
 node scripts/vendor-core.mjs --check   # vendor copy is current
 node scripts/activation-check.mjs      # needs @deepseek-ai/schemastery resolvable
 ```

@@ -32,6 +32,8 @@ window.__ModuleLoader__.load({
     const SCOPE_VALUES = ['session', 'system']
     const OCR_VALUES = ['local', 'vision', 'auto']
 const IMAGE_PART_VALUES = ['ocr', 'block']
+    const FILE_PART_VALUES = ['extract', 'block']
+    const TEXT_POLICY_VALUES = ['filter', 'mask']
 
     const S = {
       root: { display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '720px' },
@@ -90,6 +92,8 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
         extractCli: String(source.extractCli ?? ''),
         ocrEngine: String(source.ocrEngine ?? 'local'),
         imageParts: String(source.imageParts ?? 'ocr'),
+        fileParts: String(source.fileParts ?? 'extract'),
+        textPolicy: String(source.textPolicy ?? 'filter'),
         visionProvider: String(source.visionProvider ?? ''),
         visionModel: String(source.visionModel ?? ''),
         allowAgentDisable: source.allowAgentDisable === true,
@@ -104,6 +108,8 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
       if (draft.extractCli !== initial.extractCli) patch.extractCli = draft.extractCli
       if (draft.ocrEngine !== initial.ocrEngine) patch.ocrEngine = draft.ocrEngine
       if (draft.imageParts !== initial.imageParts) patch.imageParts = draft.imageParts
+      if (draft.fileParts !== initial.fileParts) patch.fileParts = draft.fileParts
+      if (draft.textPolicy !== initial.textPolicy) patch.textPolicy = draft.textPolicy
       if (draft.visionProvider !== initial.visionProvider) patch.visionProvider = draft.visionProvider
       if (draft.visionModel !== initial.visionModel) patch.visionModel = draft.visionModel
       if (draft.allowAgentDisable !== initial.allowAgentDisable) patch.allowAgentDisable = draft.allowAgentDisable
@@ -258,7 +264,7 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
         }
       }
 
-      if (state.status === 'loading') return h('p', { style: S.note }, 'Loading the privacy gate settings…')
+      if (state.status === 'loading') return h('p', { style: S.note }, 'Loading the ShyPie Filter settings…')
 
       return h(
         'div',
@@ -318,12 +324,38 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
           {
             id: 'privacy-image-parts',
             label: 'Attachments',
-            hint: 'ocr reads an attached image with the local engine and sends the masked text instead of the bytes; block refuses the step. Either way nothing leaves the machine.',
+            hint: 'ocr reads an attached image with the local engine and replaces it with text before it is logged; block refuses the step. The Local text handling setting decides whether that text is masked locally.',
           },
           h(
             'select',
             { id: 'privacy-image-parts', style: S.input, value: draft.imageParts, onChange: update('imageParts'), disabled: busy },
             ...IMAGE_PART_VALUES.map((option) => h('option', { key: option, value: option }, option)),
+          ),
+        ),
+        h(
+          Field,
+          {
+            id: 'privacy-file-parts',
+            label: 'PDF / document attachments',
+            hint: 'extract reads an attached PDF or Office file with the local extractor and replaces it with text before it is logged; block refuses the step.',
+          },
+          h(
+            'select',
+            { id: 'privacy-file-parts', style: S.input, value: draft.fileParts, onChange: update('fileParts'), disabled: busy },
+            ...FILE_PART_VALUES.map((option) => h('option', { key: option, value: option }, option)),
+          ),
+        ),
+        h(
+          Field,
+          {
+            id: 'privacy-text-policy',
+            label: 'Local text handling',
+            hint: 'filter keeps raw tool and attachment text in the local transcript; Magpie masks it outbound. mask redacts locally before the text is logged.',
+          },
+          h(
+            'select',
+            { id: 'privacy-text-policy', style: S.input, value: draft.textPolicy, onChange: update('textPolicy'), disabled: busy },
+            ...TEXT_POLICY_VALUES.map((option) => h('option', { key: option, value: option }, option)),
           ),
         ),
         h(
@@ -347,10 +379,10 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
           h(
             'ol',
             { style: { ...S.hint, margin: 0, paddingLeft: '18px' } },
-            h('li', null, 'An image you attach to a message is read automatically: the gate OCRs it locally, masks the text and sends that instead of the pixels (Attachments → ocr above). A session started before the gate was on keeps its old history — start a new session.'),
+            h('li', null, 'An image you attach to a message is read automatically: the gate OCRs it locally and replaces it with text before it is logged (Attachments → ocr above). A session started before the filter was on keeps its old history — start a new session.'),
             h('li', null, 'For a document on disk, put it under one of the allowed paths above, or add its folder.'),
             h('li', null, 'In the conversation, ask the agent: “run privacy_ocr on <path> and summarize it”.'),
-            h('li', null, 'The tool returns placeholder-masked text as the tool result; the agent reads that result as part of the prompt — you do not paste it.'),
+            h('li', null, 'The extraction tools still mask their result; the agent reads that result as part of the prompt — you do not paste it.'),
             h('li', null, 'Nothing is sent if the local engine cannot read the file: the tool fails closed instead of returning bytes.'),
           ),
           h(
@@ -425,9 +457,9 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
 
     /**
      * Composer switch: on/off for the current session.
-     * `conversation.input.dock` is a list slot whose `inject` receives the session id, which is
-     * what the session route needs; the model selector itself is a single-slot owned by
-     * `dsh-client-ui-model-selection`, so a dock chip is the additive place for a third plugin.
+     * `conversation.input.right` is the compact-control list inside the composer and supplies
+     * `sessionId` as a standard prop, so the switch sits beside the model selector instead of in
+     * the external dock.
      */
     function PrivacyGateSwitch(props) {
       const sessionId = props.sessionId
@@ -469,7 +501,7 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
       }
 
       const label =
-        state.status === 'loading' ? 'Privacy gate …' : state.status === 'error' ? 'Privacy gate ?' : `Privacy gate ${state.enabled ? 'on' : 'off'}`
+        state.status === 'loading' ? 'ShyPie filter …' : state.status === 'error' ? 'ShyPie filter ?' : `ShyPie filter ${state.enabled ? 'on' : 'off'}`
 
       return h(
         'div',
@@ -514,7 +546,7 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
                 name: 'settings.section',
                 id: NAMESPACE,
                 order: 70,
-                label: () => 'Privacy gate',
+                label: () => 'ShyPie Filter',
               },
               PrivacyGateSection,
             )
@@ -526,14 +558,13 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
         // A host without this slot must not fail boot over a missing page.
       }
       try {
-        ctx.slots.inject('conversation.input.dock', () => {
+        ctx.slots.inject('conversation.input.right', () => {
           try {
             return ctx.slots.register(
               {
-                name: 'conversation.input.dock',
+                name: 'conversation.input.right',
                 id: NAMESPACE,
                 order: 30,
-                inject: (sessionId) => ({ sessionId: typeof sessionId === 'string' ? sessionId : '' }),
               },
               PrivacyGateSwitch,
             )
@@ -542,7 +573,7 @@ const IMAGE_PART_VALUES = ['ocr', 'block']
           }
         })
       } catch {
-        // No composer dock in this host: the switch is simply absent.
+        // No composer right slot in this host: the switch is simply absent.
       }
     }
 

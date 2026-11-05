@@ -163,3 +163,118 @@ export async function convertPromptImages(deps, messages) {
 
   return { ok: true, messages: out, converted: targets.length, chars }
 }
+
+
+/** Locate every file block in an outgoing message list. */
+export function collectFileBlocks(messages) {
+  const found = []
+  if (!Array.isArray(messages)) return found
+  messages.forEach((message, messageIndex) => {
+    const content = isPlainObject(message) && Array.isArray(message.content) ? message.content : []
+    content.forEach((block, blockIndex) => {
+      if (isPlainObject(block) && block.type === 'file') {
+        found.push({ messageIndex, blockIndex, kind: 'file', attachment: isPlainObject(block.attachment) ? block.attachment : null })
+      }
+    })
+  })
+  return found
+}
+
+/** Locate images and files in one stable order. */
+export function collectAttachmentBlocks(messages) {
+  return [...collectImageBlocks(messages).map((item) => ({ ...item, kind: 'image' })), ...collectFileBlocks(messages)]
+    .sort((a, b) => a.messageIndex - b.messageIndex || a.blockIndex - b.blockIndex)
+}
+
+/** Header for a locally extracted file attachment. */
+export function extractHeader(ref, engine) {
+  const mediaType = typeof ref.mediaType === 'string' && ref.mediaType.length > 0 ? ref.mediaType : 'file'
+  const name = typeof ref.name === 'string' && ref.name.length > 0 ? ` "${ref.name.slice(0, 120)}"` : ''
+  const size = Number.isSafeInteger(ref.bytes) ? `, ${ref.bytes} bytes` : ''
+  return `[privacy-gate: local extraction of an attached ${mediaType}${name}${size}, engine ${engine}]`
+}
+
+async function extractFile(deps, attachment) {
+  let path = null
+  try {
+    const read = await deps.readFile(attachment)
+    path = read?.filePath
+  } catch {
+    return { ok: false, reason: 'ATTACHMENT_UNREADABLE' }
+  }
+  if (typeof path !== 'string' || path.length === 0) return { ok: false, reason: 'ATTACHMENT_UNREADABLE' }
+  try {
+    const result = await deps.runExtract({
+      mode: 'auto',
+      filePath: path,
+      maxChars: deps.config.maxExtractChars,
+      ...(typeof deps.config.ocrLang === 'string' && deps.config.ocrLang.length > 0 ? { lang: deps.config.ocrLang } : {}),
+      timeoutMs: deps.config.toolTimeoutMs,
+    })
+    if (result === null || typeof result !== 'object' || result.ok !== true) {
+      return { ok: false, reason: typeof result?.reason === 'string' ? result.reason : 'EXTRACT_FAILED' }
+    }
+    if (typeof result.text !== 'string' || result.text.trim().length === 0) return { ok: false, reason: 'EXTRACT_EMPTY' }
+    return { ok: true, text: capText(result.text, deps.config.maxExtractChars), engine: typeof result.engine === 'string' ? result.engine : 'local' }
+  } catch (error) {
+    return { ok: false, reason: error instanceof Error ? error.message.slice(0, 120) : 'EXTRACT_FAILED' }
+  }
+}
+
+/**
+ * Replace image and file attachments with locally extracted text. In filter
+ * mode the extracted text is kept raw locally; in mask mode it is redacted.
+ * BLOB-shaped results are still rejected either way.
+ */
+export async function convertPromptAttachments(deps, messages) {
+  const targets = collectAttachmentBlocks(messages)
+  if (targets.length === 0) return { ok: true, messages, converted: 0, chars: 0 }
+  if (deps.redactor === null || deps.redactor === undefined) return { ok: false, reason: 'REDACTOR_UNAVAILABLE' }
+  const filter = deps.config?.textPolicy === 'filter'
+  const out = messages.map((message) =>
+    isPlainObject(message) && Array.isArray(message.content) ? { ...message, content: [...message.content] } : message,
+  )
+  let chars = 0
+  for (const target of targets) {
+    const { attachment, kind } = target
+    const id = typeof attachment?.attachmentId === 'string' ? attachment.attachmentId : ''
+    if (id.length === 0) return { ok: false, reason: 'ATTACHMENT_UNREADABLE' }
+    let text
+    let engine
+    if (kind === 'image') {
+      if (deps.config?.imageParts !== 'ocr') return { ok: false, reason: 'IMAGE_PARTS_BLOCKED' }
+      if (typeof deps.readAttachment !== 'function' || typeof deps.runOcr !== 'function') return { ok: false, reason: 'OCR_UNAVAILABLE' }
+      let stored
+      try {
+        stored = await deps.readAttachment(attachment)
+      } catch {
+        return { ok: false, reason: 'ATTACHMENT_UNREADABLE' }
+      }
+      const data = stored?.data ?? stored
+      if (!(data instanceof Uint8Array) || data.length === 0) return { ok: false, reason: 'ATTACHMENT_UNREADABLE' }
+      const ocr = await ocrBytes(deps, attachment, data)
+      if (ocr.ok !== true) return { ok: false, reason: ocr.reason }
+      text = ocr.text
+      engine = ocr.engine
+    } else {
+      if (deps.config?.fileParts !== 'extract') return { ok: false, reason: 'FILE_PARTS_BLOCKED' }
+      if (typeof deps.readFile !== 'function' || typeof deps.runExtract !== 'function') return { ok: false, reason: 'EXTRACT_UNAVAILABLE' }
+      const extracted = await extractFile(deps, attachment)
+      if (extracted.ok !== true) return { ok: false, reason: extracted.reason }
+      text = extracted.text
+      engine = extracted.engine
+    }
+    const header = kind === 'image' ? ocrHeader(attachment, engine) : extractHeader(attachment, engine)
+    const body = `${header}\n\n${text}`
+    let scanned
+    try {
+      scanned = redactText(deps.redactor, body)
+    } catch {
+      return { ok: false, reason: 'REDACTOR_UNAVAILABLE' }
+    }
+    if (scanned.blocked) return { ok: false, reason: 'BLOB' }
+    out[target.messageIndex].content[target.blockIndex] = { type: 'text', text: filter ? body : scanned.text }
+    chars += scanned.chars
+  }
+  return { ok: true, messages: out, converted: targets.length, chars }
+}

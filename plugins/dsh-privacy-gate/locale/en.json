@@ -1,4 +1,4 @@
 {
-  "title": "Privacy Gate",
-  "description": "Keeps PII local: masks tool results and model-visible prompts before they enter the session, extracts PDFs and OCR locally, and blocks any transfer it cannot mask."
+  "title": "ShyPie Filter",
+  "description": "Keeps raw text local by default: extracts attached images/PDFs locally, blocks unmaskable transfer, and lets Magpie mask text at the gateway. Optionally masks locally."
 }

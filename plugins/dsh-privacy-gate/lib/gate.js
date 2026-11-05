@@ -19,7 +19,7 @@
 import { redactBlocks, redactMessages, redactStringTree } from './redact.js'
 import { isBinaryDocPath, isPathAllowed, displayName } from './paths.js'
 import { createEgressGuard } from './egress.js'
-import { convertPromptImages } from './ingest.js'
+import { convertPromptAttachments } from './ingest.js'
 
 /** Tool whose result content is an image this gate cannot mask. */
 export const READ_IMAGE_TOOL = 'read_image'
@@ -74,6 +74,34 @@ export function shapePostExecute(deps, exec, result, decision) {
   if (decision.kind === 'block') return decision
   if (decision.kind !== 'accept') return blockDecision('privacy-gate: unsupported post-execute decision; result withheld')
   if (redactor === null || redactor === undefined) return blockDecision('privacy-gate: local redaction unavailable; tool result withheld')
+
+  // Filter mode keeps the local transcript raw; it still scans for the
+  // unmaskable BLOB/media shapes that Magpie's text masking can never fix.
+  if (config.textPolicy === 'filter') {
+    try {
+      const base = Object.hasOwn(decision, 'value')
+        ? decision.value
+        : (Array.isArray(decision.content) ? decision.content : result?.content)
+      if (Object.hasOwn(decision, 'value') || (result !== null && typeof result === 'object' && result.isError !== true)) {
+        const value = Object.hasOwn(decision, 'value') ? decision.value : result?.value
+        if (value !== undefined) {
+          const valueOut = redactStringTree(redactor, value)
+          if (valueOut.blocked) return blockDecision('privacy-gate: tool result carried a binary payload (BLOB); withheld')
+        }
+      }
+      const contentOut = redactBlocks(redactor, Array.isArray(base) ? base : [], { blockNonText: config.blockNonTextResults })
+      if (contentOut.blocked) {
+        return blockDecision(
+          contentOut.reason === 'BLOB'
+            ? 'privacy-gate: tool result carried a binary payload (BLOB); withheld'
+            : 'privacy-gate: tool result carried image/file content that cannot be masked; withheld',
+        )
+      }
+      return decision
+    } catch {
+      return blockDecision('privacy-gate: filter scan failed; tool result withheld')
+    }
+  }
 
   try {
     // A value-replacing inner listener: redact the replacement value.
@@ -139,7 +167,7 @@ export async function shapePreStep(deps, payload, decision) {
   if (redactor === null || redactor === undefined) return { kind: 'reject' }
 
   try {
-    const ingested = await convertPromptImages(deps, decision.messages)
+    const ingested = await convertPromptAttachments(deps, decision.messages)
     if (ingested.ok !== true) {
       audit.record({ kind: 'attachment-blocked', length: 0, count: 0, path_hash: '' })
       try {
@@ -151,6 +179,22 @@ export async function shapePreStep(deps, payload, decision) {
     }
     if (ingested.converted > 0) {
       audit.record({ kind: 'attachment-ocr', length: ingested.chars, count: ingested.converted, path_hash: '' })
+    }
+
+    // Filter mode keeps the extracted attachment text raw in the local log;
+    // Magpie masks the outbound text. Scan without replacing so BLOB/media
+    // still fail closed.
+    if (deps.config?.textPolicy === 'filter') {
+      const scan = redactMessages(redactor, ingested.messages, { blockNonText: true })
+      if (scan.blocked) {
+        audit.record({ kind: 'prompt-blocked', length: 0, count: scan.attachments.length, path_hash: '' })
+        return { kind: 'reject' }
+      }
+      if (ingested.converted > 0) {
+        audit.record({ kind: 'attachment-ocr', length: ingested.chars, count: ingested.converted, path_hash: '' })
+        return { ...decision, messages: ingested.messages }
+      }
+      return decision
     }
 
     // blockNonText stays on: after the conversion an `image` block can only

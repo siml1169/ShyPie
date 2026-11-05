@@ -57,12 +57,11 @@ test('the client half exports apply/inject and registers both contributions', as
     // No settings namespace: the page talks to the host over its own route instead.
     assert.equal(section.options.inject, undefined)
 
-    const dock = registered.find((entry) => entry.slot === 'conversation.input.dock')
-    assert.equal(dock.options.id, 'privacy-gate')
-    // The dock inject receives the session id, which the session route needs.
-    assert.deepEqual(dock.options.inject('s-1'), { sessionId: 's-1' })
-    assert.deepEqual(dock.options.inject(undefined), { sessionId: '' })
-    assert.equal(typeof dock.component, 'function')
+    const control = registered.find((entry) => entry.slot === 'conversation.input.right')
+    assert.equal(control.options.id, 'privacy-gate')
+    // The right slot supplies sessionId as a standard prop; no custom inject is needed.
+    assert.equal(control.options.inject, undefined)
+    assert.equal(typeof control.component, 'function')
   } finally {
     delete globalThis.window
   }
@@ -74,7 +73,7 @@ test('the section renders a loading state before its fetch settles', async () =>
     const section = registered.find((entry) => entry.slot === 'settings.section')
     const tree = section.component({})
     assert.equal(tree.type, 'p')
-    assert.match(JSON.stringify(tree), /Loading the privacy gate settings/)
+    assert.match(JSON.stringify(tree), /Loading the ShyPie Filter settings/)
   } finally {
     delete globalThis.window
   }

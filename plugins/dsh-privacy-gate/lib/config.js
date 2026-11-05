@@ -32,6 +32,8 @@ export const CONFIG_KEYS = Object.freeze([
   'ocrEngine',
   'ocrLang',
   'imageParts',
+  'fileParts',
+  'textPolicy',
   'visionProvider',
   'visionModel',
 ])
@@ -48,7 +50,8 @@ export const DEFAULTS = Object.freeze({
   artifactDir: '',
   toolTimeoutMs: 120_000,
   maxExtractChars: 200_000,
-  egressAllowProviders: [],
+  // Filter mode keeps raw local text; only the Magpie gateway is allowed to receive it by default.
+  egressAllowProviders: ['magpie*'],
   egressAllowModels: [],
   egressMaxChars: 2_000_000,
   egressMaxNodes: 200_000,
@@ -66,6 +69,10 @@ export const DEFAULTS = Object.freeze({
   // 'ocr' is the default because blocking a scan the machine could read defeats
   // the point of the gate; extraction failure still blocks (see lib/ingest.js).
   imageParts: 'ocr',
+  // PDF/Office attachments are extracted locally and stored as text; 'block' rejects them.
+  fileParts: 'extract',
+  // 'filter' keeps raw local text and lets Magpie mask the outbound request; 'mask' redacts locally.
+  textPolicy: 'filter',
   visionProvider: '',
   visionModel: '',
 })
@@ -145,6 +152,8 @@ export function resolveConfig(raw = {}, base = {}) {
     ocrEngine: raw.ocrEngine ?? DEFAULTS.ocrEngine,
     ocrLang: typeof (raw.ocrLang ?? '') === 'string' ? (raw.ocrLang ?? '') : fail('ocrLang must be a string'),
     imageParts: raw.imageParts ?? DEFAULTS.imageParts,
+    fileParts: raw.fileParts ?? DEFAULTS.fileParts,
+    textPolicy: raw.textPolicy ?? DEFAULTS.textPolicy,
     visionProvider: typeof (raw.visionProvider ?? '') === 'string' ? (raw.visionProvider ?? '') : fail('visionProvider must be a string'),
     visionModel: typeof (raw.visionModel ?? '') === 'string' ? (raw.visionModel ?? '') : fail('visionModel must be a string'),
   }
@@ -152,6 +161,8 @@ export function resolveConfig(raw = {}, base = {}) {
   if (resolved.scope !== 'session' && resolved.scope !== 'system') fail('scope must be "session" or "system"')
   if (!['local', 'vision', 'auto'].includes(resolved.ocrEngine)) fail('ocrEngine must be "local", "vision" or "auto"')
   if (resolved.imageParts !== 'ocr' && resolved.imageParts !== 'block') fail('imageParts must be "ocr" or "block"')
+  if (resolved.fileParts !== 'extract' && resolved.fileParts !== 'block') fail('fileParts must be "extract" or "block"')
+  if (resolved.textPolicy !== 'filter' && resolved.textPolicy !== 'mask') fail('textPolicy must be "filter" or "mask"')
   if (typeof resolved.allowAgentDisable !== 'boolean') fail('allowAgentDisable must be a boolean')
 
   if (typeof resolved.blockNonTextResults !== 'boolean') fail('blockNonTextResults must be a boolean')

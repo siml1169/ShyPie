@@ -130,6 +130,7 @@ export function inspectEgress(request, deps, cache = null) {
   if (redactor === null || typeof redactor.scan !== 'function') return blocked('REDACTOR_UNAVAILABLE')
 
   const maxChars = Number.isSafeInteger(config.egressMaxChars) ? config.egressMaxChars : 2_000_000
+  const blockPii = config.textPolicy !== 'filter'
   const maxNodes = Number.isSafeInteger(config.egressMaxNodes) ? config.egressMaxNodes : 200_000
   const stats = { chars: 0, nodes: 0, strings: 0 }
 
@@ -147,7 +148,7 @@ export function inspectEgress(request, deps, cache = null) {
       const hits = redactor.scan(text)
       if (!Array.isArray(hits)) throw Object.assign(new Error('scan'), { egressReason: 'SCAN_FAILED' })
       if (hasBlob(hits)) throw Object.assign(new Error('blob'), { egressReason: 'BLOB' })
-      if (hits.length > 0) throw Object.assign(new Error('pii'), { egressReason: 'PII' })
+      if (blockPii && hits.length > 0) throw Object.assign(new Error('pii'), { egressReason: 'PII' })
     }
 
     const scanContent = (content, where) => {

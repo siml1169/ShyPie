@@ -34,7 +34,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 | Initial requirement | How it is implemented | Evidence | Status |
 |---|---|---|---|
-| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; DSH Gate 1 redacts tool-result text before append (error-result `meta` is not rewritten); DSH Gate 3 rewrites model-visible user text; DSH `llm/stream` egress guard; Magpie's Privacy masking covers the gateway text path | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 100/100; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
+| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; default `textPolicy: filter` keeps raw local text while Magpie's Privacy masking masks the gateway text path; `mask` restores local redaction; DSH Gate 1/3 and `llm/stream` enforce the filter | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 100/100; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
 | **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49 tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all 8 block reasons tested | Met on Windows; no cloud converter is ever called |
 | **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; the DSH `llm/stream` guard blocks before dispatch; Magpie middleware returns 403 for binary parts, blobs, disallowed models, and blanks content in `onProvider` when it cannot reject | Magpie 50 in-tree cases; live image 403; model-allowlist live 403 for DSH and Copilot; vendor-signature replays 200 after the exemption fix | Met; the bounded text scan and pre-uploaded Files-API references are documented residual limits |
 | **DSH + Magpie plugin combo** | DSH host bundle (`@shypie_privacy/dsh-privacy-gate`) plus Magpie gateway middleware (`@magpie-community/middleware-privacy-gate`) | DSH bundle installs into `headless` and `desktop` profiles; live two-turn DeepSeek and Copilot sessions; middleware loaded in a live Magpie gateway | Met in code; Magpie package is not yet published from its new home |
@@ -47,7 +47,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 |---|---|---|---|
 | `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
-| `@shypie_privacy/dsh-privacy-gate` | `0.2.0`, `plugins/dsh-privacy-gate` | npm `0.2.0` published | ✅ egress guard, stable error code and incremental cache live-tested in DSH 0.2.1-rc.5 |
+| `@shypie_privacy/dsh-privacy-gate` | `0.3.0` source, `plugins/dsh-privacy-gate` | npm `0.2.0` published; `0.3.0` pending publish | ✅ filter mode, image/PDF extraction, stable error code and cache live-tested in DSH 0.2.1-rc.5 |
 | `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 50 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation pending |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH catalog PR #12308 open | 🟡 |
@@ -58,7 +58,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 - `pii-core`: 61 top-level tests, 60 pass, 1 platform skip.
 - `local-extract`: 49/49.
-- `dsh-privacy-gate`: 100/100, including the `llm/stream` egress guard (stable `PRIVACY_EGRESS_BLOCKED` code, incremental message cache, PII-block policy).
+- `dsh-privacy-gate`: 154/154, including OCR for attached images, PDF/file extraction, filter/mask text policy, the `llm/stream` egress guard and incremental message cache.
 - `e2e`: 11/11.
 - Magpie middleware: **50 cases** in the in-tree `packages/privacy-gate/cases.json`; moejs measurement: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms (403 at cap), 200 turns / 350 KB = 38 ms (pass); root-only declaration scoping added; legacy ShyPie
   harness has 58 checks that predate the six site-scoping regressions.

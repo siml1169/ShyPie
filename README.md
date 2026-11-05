@@ -1,15 +1,15 @@
 # ShyPie — privacy-first workflow for DeepSeek Harness + Magpie
 
-> Keep PII on your machine: documents are converted to text **locally**, recognised PII is replaced
-> with stable placeholders **before it can enter the session log**, and anything that cannot be
-> masked locally is **blocked**, not sent.
+> Keep PII on your machine: images and PDFs are converted to text **locally**, the local transcript
+> stays readable by default, and Magpie masks the text **before it leaves the machine**. Anything that
+> cannot be masked or filtered is **blocked**, not sent.
 
 This repository is a reference implementation of a two-plugin combo for
 [DeepSeek Harness](https://github.com/deepseek-ai) (DSH) and [Magpie](https://usemagpie.ai):
 
 | Component | npm package | Role |
 |---|---|---|
-| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, guards binary reads, and enforces a fail-closed `llm/stream` egress guard |
+| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | **ShyPie Filter** DSH host bundle: extracts attached images/PDFs locally, keeps tool/document text local by default, guards binary reads, and enforces a fail-closed `llm/stream` egress guard |
 | [Magpie middleware (in-tree)](https://github.com/magpie-community/plugins/pull/685) | `@magpie-community/middleware-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
 | [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
 | [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
@@ -28,15 +28,16 @@ documented precisely in [docs/design.md](docs/design.md) and summarised below.
 ## Why two plugins
 
 1. **DSH's outbound request is immutable.** It is a deep-frozen fold of the session log
-   (`dsh-agent-loop`, `markAgentLoopRequest`), so a plugin cannot rewrite it on the way out the way
-   Magpie does for other agents. Masking must happen **at ingestion** — before bytes become part of
-   the history that is replayed on every turn.
+   (`dsh-agent-loop`, `markAgentLoopRequest`), so a plugin cannot rewrite it on the way out. ShyPie
+   Filter therefore does the local part it can do — extract attachments, block bytes it cannot mask,
+   and enforce the provider allowlist — while Magpie masks text at the gateway.
 2. **Magpie's masking is text-only.** Its own documentation says *"Images and file data are sent as
    they are. Text inside a screenshot is not masked."* A gateway can never mask a PDF page or a
    screenshot, so the gateway must **reject** what it cannot mask.
 
-The DSH gate covers what enters the session log; the Magpie gate covers every other agent behind the
-gateway (Cursor, Copilot, Claude Code, scripts).
+ShyPie Filter covers what enters the DSH session log; Magpie covers text masking and every other agent
+behind the gateway (Cursor, Copilot, Claude Code, scripts). The default `textPolicy: filter` keeps
+raw local text; `textPolicy: mask` restores local placeholder masking.
 
 ## Architecture
 
@@ -44,32 +45,32 @@ gateway (Cursor, Copilot, Claude Code, scripts).
 flowchart TB
   subgraph DSH[DeepSeek Harness]
     direction TB
-    U["user text / attachments"] --> G3["Gate 3<br/>user ingress redaction"]
+    U["user text / attachments"] --> G3["Gate 3<br/>user ingress filter"]
     T["tool call<br/>read / pwsh / MCP"] --> TOOL["tool execution"]
-    TOOL --> G1["Gate 1<br/>tool-result text redaction"]
-    PDF["PDF / scan / document"] --> EXT["privacy_extract / privacy_ocr<br/>local CLI: pdftotext / OS OCR"]
-    EXT --> RED["local redaction"]
-    RED --> PH["placeholders"]
+    TOOL --> G1["Gate 1<br/>tool-result filter"]
+    PDF["PDF / image attachment"] --> EXT["local extraction / OCR<br/>pdftotext / Windows OCR"]
+    EXT --> RED["local text (raw by default)"]
+    RED --> PH["text"]
     EXT -.->|blocked| ERR["tool error<br/>no data"]
-    G3 --> LOG["session log<br/>placeholders only"]
+    G3 --> LOG["session log<br/>raw local text by default"]
     G1 --> LOG
     PH --> LOG
-    LOG --> REQ["LLM request<br/>placeholders only"]
+    LOG --> REQ["LLM request<br/>text to mask at gateway"]
     REQ --> EG{"DSH llm/stream<br/>egress guard"}
     EG -->|reject| BLOCK["turn fails<br/>PRIVACY_EGRESS_BLOCKED"]
   end
   subgraph MAGPIE[Magpie gateway controls]
     direction TB
     MW["privacy-gate middleware<br/>rejects images / files / audio,<br/>encoded blobs, disallowed models"]
-    MASK["built-in Privacy text masking"]
+    MASK["built-in Privacy text masking<br/>raw PII is masked here"]
     MW --> MASK
   end
   EG -->|pass| GW["Magpie gateway"]
   GW --> MW
   MASK --> LLM["LLM provider"]
   OTHER["other agents<br/>Cursor / Copilot / Claude Code / scripts"] -.-> GW
-  LLM --> OUT["model output<br/>placeholders"]
-  OUT --> RH["privacy_rehydrate"]
+  LLM --> OUT["model output"]
+  OUT -.-> RH["privacy_rehydrate (optional)"]
   RH --> ART["local artifact"]
   classDef gate fill:#fff3cd,stroke:#b8860b,color:#000
   classDef reject fill:#f8d7da,stroke:#b02a37,color:#000
@@ -79,19 +80,21 @@ flowchart TB
 
 ## What it protects
 
-- **Tool and document ingress.** Tool-result **text** is scanned by deterministic detectors before
-  it is appended; PDFs, Office documents and scans are converted to text locally first. Error-result
-  `meta` is not rewritten and remains a documented local residual.
+- **Tool and document ingress.** Tool-result text and locally extracted attachment text are kept in
+  the local transcript by default. PDFs, Office files, attached images and scans are converted with a
+  local extractor/OCR first; unmaskable BLOB/media is blocked. Error-result `meta` is not rewritten and
+  remains a documented local residual.
 - **Local conversion only.** Text layers use `pdftotext`; scans use `pdftoppm` plus a local OCR
   adapter (on Windows, the built-in `Windows.Media.Ocr` engine — no install, no network). If no
   local engine exists the call is **blocked** (`NO_LOCAL_OCR`), never sent to a cloud converter.
-- **Attachments are converted, not forwarded.** An image attached to a message is read through the
-  harness's attachment store, OCR'd locally and replaced by masked text *before* the message is
-  logged — the step is rejected when the bytes cannot be read (no extractor, failed verification,
-  empty OCR result, `imageParts: 'block'`).
+- **Attachments are converted, not forwarded.** An attached image or PDF is read through the
+  harness's attachment store, converted locally, and replaced by text *before* the message is logged —
+  the step is rejected when the bytes cannot be read (no extractor, failed verification, empty result,
+  `imageParts: 'block'` or `fileParts: 'block'`).
 - **Un-maskable payloads are rejected**: base64/hex/`data:`-encoded documents (contiguous, line-
   wrapped or dump-formatted), image/file/audio parts to non-local providers, unknown binaries,
-  encrypted PDFs.
+  encrypted PDFs. In `textPolicy: filter` the DSH egress guard allows plaintext PII only through the
+  default `magpie*` provider; Magpie must have Privacy masking enabled.
 - **Round-trip without exposing values.** `privacy_rehydrate` resolves placeholders inside the tool
   and returns only `{path, replaced, kinds}`; the model can fill a form without seeing the value.
 
@@ -101,8 +104,9 @@ flowchart TB
 - **Transformed values** (reversed, re-encoded) are not detected; zero-width and soft-hyphen tricks are.
 - **Detector false negatives** are possible; the design is layered (rules → local gateway model →
   fail-closed blocks) but not complete. Read [docs/design.md §12](docs/design.md#12-known-limitations).
-- **Local at-rest residues** are named, not hidden: DSH records the raw submitted prompt before any
-  plugin seam, and Magpie's masking journal keeps values for 30 days.
+- **Local at-rest residues** are named, not hidden: filter mode deliberately keeps raw tool/attachment
+  text in the local DSH transcript; DSH also records the raw submitted prompt before any plugin seam,
+  and Magpie's masking journal keeps values for 30 days.
 - **History predating installation** is replayed unchanged — start new sessions after installing.
 - The plugins are **not installed by this repository**; installation changes profile-wide state and
   is documented step by step.

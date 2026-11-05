@@ -236,3 +236,18 @@ export function imageBlock(overrides = {}) {
     },
   }
 }
+
+
+/** One `file` content block with a synthetic PDF attachment reference. */
+export function fileBlock(overrides = {}) {
+  return {
+    type: 'file',
+    attachment: {
+      attachmentId: 'att_pdffake0000001',
+      mediaType: 'application/pdf',
+      bytes: 42,
+      name: 'scan.pdf',
+      ...overrides,
+    },
+  }
+}

@@ -29,6 +29,8 @@ export function liveFromConfig(resolved) {
     allowAgentDisable: resolved.allowAgentDisable,
     ocrEngine: resolved.ocrEngine,
     imageParts: resolved.imageParts,
+    fileParts: resolved.fileParts,
+    textPolicy: resolved.textPolicy,
     visionProvider: resolved.visionProvider,
     visionModel: resolved.visionModel,
   }
@@ -56,6 +58,8 @@ export function buildLiveRowConfig(rowConfig, live) {
     allowAgentDisable: live.allowAgentDisable,
     ocrEngine: live.ocrEngine,
     imageParts: live.imageParts,
+    fileParts: live.fileParts,
+    textPolicy: live.textPolicy,
     visionProvider: live.visionProvider,
     visionModel: live.visionModel,
   }

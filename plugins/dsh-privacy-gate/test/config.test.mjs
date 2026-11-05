@@ -17,6 +17,8 @@ test('empty config resolves to the documented fail-closed defaults', () => {
   assert.equal(resolved.artifactDir, BASE.artifactDir)
   assert.equal(resolved.placeholderKey.file, BASE.keyFile)
   assert.equal(resolved.blockNonTextResults, true)
+  assert.equal(resolved.textPolicy, 'filter')
+  assert.equal(resolved.fileParts, 'extract')
   assert.equal('failClosed' in resolved, false, 'failing closed is not a switch')
 })
 

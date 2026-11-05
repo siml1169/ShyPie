@@ -188,8 +188,9 @@ A DSH bundle (Host plugin). Files: `package.json` (with `dsh.bundle.patch`), `co
 
 Implements the following, verified against the shipped source (every claim carries a `file:line` reference in `research/dsh-hooks.md`):
 
-- Gate 1 — tool ingress: a `tools/post-execute` waterfall listener that redacts every text block of
-  any tool result (read, pwsh, grep, glob, MCP tools) before it is appended, using `pii-core`. An
+- Gate 1 — tool ingress: a `tools/post-execute` waterfall listener that sees every text block of any
+  tool result before it is appended. `textPolicy: 'filter'` (default) keeps local text and scans
+  BLOB/media; `mask` redacts with `pii-core`. An
   error result's `meta` cannot be rewritten by this seam and is a documented local residual.
   Deterministic substitute: `dsh-compaction-tool-result-pruner`. Must return `next()` when it has
   nothing to change (practices.md: waterfall listeners that do not own the decision return next()).
@@ -198,22 +199,22 @@ Implements the following, verified against the shipped source (every claim carri
   realpath), and `allowPaths: []` means no document is readable.
   They shell out to `packages/local-extract/cli.js` (path configurable), redact the text with
   `pii-core` before returning, and surface a blocked result as a tool error, never as content.
-- Gate 3 — user/attachment ingress: redact `user/message` text in the `agent/pre-step` waterfall
-  (those messages are what the loop appends), and replace an `image` content block with locally
-  OCR'd, redacted text: the block references an opaque attachment, which the gate reads through the
-  host attachment service (`ctx.attachments.readImage`), runs through the local extractor, and masks
-  before substituting a single text block. The step is rejected — never forwarded with the image —
-  when the bytes cannot be read locally (missing service, failed verification, missing/failing
-  extractor, empty OCR result, BLOB-shaped result, or `imageParts: 'block'`); `file`/`audio`/`video`
-  parts are always rejected. The harness records the raw submitted prompt before this seam; that
-  residual is documented, not hidden.
+- Gate 3 — user/attachment ingress: `agent/pre-step` handles the messages the loop appends.
+  `textPolicy: 'filter'` keeps user text local; `mask` redacts it. An attached `image` is OCR'd
+  locally and a `file` (PDF/Office) is extracted locally through the host attachment service; the
+  block is replaced by one text block. Extraction results stay raw locally in filter mode and are
+  masked in mask mode. The step is rejected when bytes cannot be read locally (missing service,
+  failed verification, missing/failing extractor, empty result, BLOB, `imageParts`/`fileParts: block`);
+  audio/video and unsupported files are rejected. The harness records the raw submitted prompt
+  before this seam; that residual is documented, not hidden.
 - Guards: deny `read_image` and `read` of binary/document extensions outside `allowPaths`; deny any
   tool result carrying a `BLOB` hit (base64/PDF/zip) — that is the "block the data transfer" rule.
 - `privacy_rehydrate(text, artifactPath)`: resolves placeholders **inside the tool** into a local
   artifact and returns only `{ path, replaced, kinds }` — never the plaintext values. This is the
   round-trip rule: the model can act on placeholders without seeing values.
 - Config via schemastery `Config`: `{ allowPaths: string[], detectors: string[],
-  extractCli: string, audit: { enabled, path }, placeholderKey: { file }, imageParts: 'ocr'|'block' }`.
+  extractCli: string, audit: { enabled, path }, placeholderKey: { file }, imageParts: 'ocr'|'block',
+  fileParts: 'extract'|'block', textPolicy: 'filter'|'mask' }`.
 - Fail-closed: if `pii-core` cannot load, if the key file is missing, or if extraction blocks, the
   gate must deny rather than pass text through.
 

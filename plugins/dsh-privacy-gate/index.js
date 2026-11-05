@@ -102,7 +102,7 @@ export const Config = z.object({
   artifactDir: z.string().default(''),
   toolTimeoutMs: z.number().step(1).min(1).default(120_000),
   maxExtractChars: z.number().step(1).min(1).default(200_000),
-  egressAllowProviders: z.array(z.string()).default([]),
+  egressAllowProviders: z.array(z.string()).default(['magpie*']),
   egressAllowModels: z.array(z.string()).default([]),
   egressMaxChars: z.number().step(1).min(1).default(2_000_000),
   egressMaxNodes: z.number().step(1).min(1).default(200_000),
@@ -111,6 +111,8 @@ export const Config = z.object({
   ocrEngine: z.string().default('local'),
   ocrLang: z.string().default(''),
   imageParts: z.string().default('ocr'),
+  fileParts: z.string().default('extract'),
+  textPolicy: z.string().default('filter'),
   visionProvider: z.string().default(''),
   visionModel: z.string().default(''),
   allowAgentDisable: z.boolean().default(false),
@@ -295,6 +297,22 @@ export async function apply(ctx, config) {
       cliPath: deps.config.extractCli,
       nodePath: process.execPath,
     }),
+    runExtract: (options) => runExtractCli({
+      ...options,
+      cliPath: deps.config.extractCli,
+      nodePath: process.execPath,
+    }),
+    readFile: (attachment, signal) => {
+      const store = typeof ctx.get === 'function' ? ctx.get('attachments') : undefined
+      if (store === undefined || store === null || typeof store.fileHostPath !== 'function') {
+        throw new Error('privacy-gate: the attachment service cannot resolve a file path')
+      }
+      const filePath = store.fileHostPath(attachment)
+      if (typeof filePath !== 'string' || filePath.length === 0) {
+        throw new Error('privacy-gate: the attachment service returned no file path')
+      }
+      return { filePath }
+    },
     sessions: createSessionRegistry({
       file: resolved.sessionsPath,
       scope: resolved.scope,

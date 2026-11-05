@@ -162,3 +162,11 @@ test('the terminal error stream carries the stable code', async () => {
   for await (const chunk of guard(request([text('PII')]), () => {})) chunks.push(chunk)
   assert.equal(chunks[0].reason.failure.code, EGRESS_BLOCKED_CODE)
 })
+
+
+test('filter mode does not reject PII but still rejects BLOB', () => {
+  const filterDeps = deps({ config: { textPolicy: 'filter' } })
+  assert.equal(inspectEgress(request([text('PII')]), filterDeps).ok, true)
+  assert.equal(inspectEgress(request([text('BLOB')]), filterDeps).reason, 'BLOB')
+  assert.equal(inspectEgress(request([text('PII')]), deps({ config: { textPolicy: 'mask' } })).reason, 'PII')
+})

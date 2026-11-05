@@ -1,8 +1,8 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { collectImageBlocks, convertPromptImages, ocrHeader } from '../lib/ingest.js'
-import { FIXTURE, imageBlock, makeFakeIngest, makeGateDeps } from './helpers.mjs'
+import { collectImageBlocks, convertPromptAttachments, convertPromptImages, ocrHeader } from '../lib/ingest.js'
+import { FIXTURE, fileBlock, imageBlock, makeFakeIngest, makeGateDeps } from './helpers.mjs'
 
 const deps = (overrides = {}) => {
   const ingest = makeFakeIngest(overrides.ingest)
@@ -150,4 +150,39 @@ test('two images in one step are both converted and counted', async () => {
   ])
   assert.equal(out.converted, 2)
   assert.equal(out.messages[0].content.every((block) => block.type === 'text'), true)
+})
+
+
+test('PDF attachments are extracted and kept raw in filter mode', async () => {
+  const rawText = `Kunde ${FIXTURE.iban}\nMail ${FIXTURE.email}`
+  const out = await convertPromptAttachments({
+    config: { textPolicy: 'filter', imageParts: 'ocr', fileParts: 'extract', maxExtractChars: 1000, ocrLang: '', toolTimeoutMs: 1000 },
+    redactor: makeGateDeps().redactor,
+    state: { broken: null },
+    readFile: async () => ({ filePath: 'C:/synthetic/scan.pdf' }),
+    runExtract: async () => ({ ok: true, engine: 'fake-pdf', text: rawText }),
+  }, [{ id: 'm1', content: [fileBlock()] }])
+  assert.equal(out.ok, true)
+  assert.equal(out.converted, 1)
+  assert.equal(out.messages[0].content[0].type, 'text')
+  assert.match(out.messages[0].content[0].text, /local extraction of an attached application\/pdf/)
+  assert.ok(out.messages[0].content[0].text.includes(FIXTURE.iban), 'filter mode keeps raw local text')
+  assert.ok(!out.messages[0].content[0].text.includes('{{IBAN_'), 'filter mode does not mask locally')
+})
+
+test('PDF attachments are masked in mask mode and blocked by fileParts', async () => {
+  const rawText = `Kunde ${FIXTURE.iban}`
+  const deps = {
+    config: { textPolicy: 'mask', imageParts: 'ocr', fileParts: 'extract', maxExtractChars: 1000, ocrLang: '', toolTimeoutMs: 1000 },
+    redactor: makeGateDeps().redactor,
+    state: { broken: null },
+    readFile: async () => ({ filePath: 'C:/synthetic/scan.pdf' }),
+    runExtract: async () => ({ ok: true, engine: 'fake-pdf', text: rawText }),
+  }
+  const out = await convertPromptAttachments(deps, [{ id: 'm1', content: [fileBlock()] }])
+  assert.equal(out.ok, true)
+  assert.match(out.messages[0].content[0].text, /\{\{IBAN_/)
+  assert.ok(!out.messages[0].content[0].text.includes(FIXTURE.iban))
+  const blocked = await convertPromptAttachments({ ...deps, config: { ...deps.config, fileParts: 'block' } }, [{ id: 'm1', content: [fileBlock()] }])
+  assert.deepEqual(blocked, { ok: false, reason: 'FILE_PARTS_BLOCKED' })
 })
