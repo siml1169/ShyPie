@@ -117,6 +117,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [ ] Both marketplace listings live.
 - [ ] Legacy npm package rejected/deprecated.
 - [ ] GitHub release from `v0.1.1`.
+- [ ] DSH bundle `0.2.0` (egress guard) published.
 - [ ] ShyPie legacy middleware source removed after the community package publishes.
 
 ## 8. Sources of truth

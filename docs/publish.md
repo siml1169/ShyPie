@@ -117,6 +117,7 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [ ] Magpie registry PR merged and community package published.
 - [ ] DSH catalog entry submitted and merged.
 - [ ] Legacy `@shypie_privacy/magpie-privacy-gate` stage rejected and package deprecated.
+- [ ] DSH bundle `0.2.0` (egress guard) published.
 - [ ] GitHub release created from tag `v0.1.1`.
 
 ## 5. Version strategy

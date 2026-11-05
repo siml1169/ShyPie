@@ -167,7 +167,7 @@ LICENSE                   MIT
 ## Status
 
 Reference implementation, tested on one Windows machine. **Published:** `pii-core`, `local-extract`
-and the DSH bundle at `0.1.0`. The Magpie middleware moved **in-tree** to magpie-community/plugins
+and the DSH bundle at `0.1.0` (its `0.2.0` egress guard is source-only pending publish). The Magpie middleware moved **in-tree** to magpie-community/plugins
 ([PR #685](https://github.com/magpie-community/plugins/pull/685)); the legacy
 `@shypie_privacy/magpie-privacy-gate` npm package is no longer referenced and is being retired. Tag
 `v0.1.1` exists; there is no GitHub release yet. The DSH catalog entry is ready to submit.

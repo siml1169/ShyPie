@@ -77,7 +77,8 @@ Install the bundle **through the plugin manager**, never by editing the profile 
 
 From npm, `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` installs the same
 bundle without a checkout; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older
-host refuses it instead of failing at load time.
+host refuses it instead of failing at load time. Published npm `0.1.0` predates the `0.2.0` egress
+guard; until `0.2.0` is published, install the bundle folder from this checkout to get it.
 
 Then set the bundle row's config (the `cordis.patch.yml` config layer). A minimal configuration:
 
