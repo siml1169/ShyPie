@@ -20,8 +20,12 @@ window.__ModuleLoader__.load({
 
 const h = react.createElement
 
-/** Required client services, mirroring the core settings pages. */
-const inject = ['slots', 'locale', 'connection', 'remote', 'settingsScope']
+/**
+ * The plugin itself depends only on `slots`, the one service every client plugin has at boot.
+ * `settingsScope` is resolved through a child injection instead: waiting on it in the plugin's own
+ * `inject` leaves the web-boot entry pending, and DSH treats a pending entry as a failed start.
+ */
+const inject = ['slots']
 
 /** Namespace shared with the host half. */
 const NAMESPACE = 'privacy-gate'
@@ -248,27 +252,41 @@ function PrivacyGateSection(props) {
  * @param {object} ctx - browser plugin context.
  */
 function apply(ctx) {
-  const controller = ctx.settingsScope.bind({ namespace: NAMESPACE })
-  const injected = () => ({
-    scope: {
-      getSnapshot: () => controller.getSnapshot(),
-      subscribe: (listener) => controller.subscribe(listener),
-      load: () => controller.load(),
-      set: (field, value) => controller.set(field, value),
-    },
-  })
-  ctx.slots.inject('settings.section', () =>
-    ctx.slots.register(
-      {
-        name: 'settings.section',
-        id: NAMESPACE,
-        order: 70,
-        label: () => 'Privacy gate',
-        inject: injected,
+  // Child injection: the section appears once the settings services are live, and the package
+  // entry itself never reports pending.
+  ctx.inject(['settingsScope', 'connection', 'remote'], (scoped) => {
+    let controller
+    try {
+      controller = scoped.settingsScope.bind({ namespace: NAMESPACE })
+    } catch {
+      // The host does not expose this namespace (settings-not-exposed) — no section, no failure.
+      return
+    }
+    const injected = () => ({
+      scope: {
+        getSnapshot: () => controller.getSnapshot(),
+        subscribe: (listener) => controller.subscribe(listener),
+        load: () => controller.load(),
+        set: (field, value) => controller.set(field, value),
       },
-      PrivacyGateSection,
-    ),
-  )
+    })
+    scoped.effect(
+      () =>
+        ctx.slots.inject('settings.section', () =>
+          ctx.slots.register(
+            {
+              name: 'settings.section',
+              id: NAMESPACE,
+              order: 70,
+              label: () => 'Privacy gate',
+              inject: injected,
+            },
+            PrivacyGateSection,
+          ),
+        ),
+      'privacy-gate: settings section',
+    )
+  })
 }
 
 

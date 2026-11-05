@@ -39,6 +39,11 @@ async function loadClient() {
         }
       },
     },
+    inject: (_services, callback) => callback(ctx),
+    effect: (factory) => {
+      const dispose = factory()
+      return typeof dispose === 'function' ? dispose : () => {}
+    },
     slots: {
       inject: (slot, run) => run(),
       register: (options, component) => {
@@ -56,7 +61,9 @@ test('the client half exports apply/inject and binds the privacy-gate namespace'
   try {
     assert.equal(typeof exports.apply, 'function')
     assert.ok(Array.isArray(exports.inject))
-    assert.ok(exports.inject.includes('settingsScope'))
+    // Only `slots` may be required: anything else can leave the web-boot entry pending, which DSH
+    // treats as a failed start.
+    assert.deepEqual(exports.inject, ['slots'])
     assert.equal(exports.name, 'privacy-gate')
 
     const bound = registered.find((entry) => entry.bound !== undefined)
