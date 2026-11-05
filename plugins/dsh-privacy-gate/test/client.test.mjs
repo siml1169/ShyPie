@@ -40,7 +40,7 @@ async function loadClient() {
   return { exports, registered }
 }
 
-test('the client half exports apply/inject and registers the section', async () => {
+test('the client half exports apply/inject and registers both contributions', async () => {
   const { exports, registered } = await loadClient()
   try {
     assert.equal(typeof exports.apply, 'function')
@@ -56,6 +56,13 @@ test('the client half exports apply/inject and registers the section', async () 
     assert.equal(typeof section.component, 'function')
     // No settings namespace: the page talks to the host over its own route instead.
     assert.equal(section.options.inject, undefined)
+
+    const dock = registered.find((entry) => entry.slot === 'conversation.input.dock')
+    assert.equal(dock.options.id, 'privacy-gate')
+    // The dock inject receives the session id, which the session route needs.
+    assert.deepEqual(dock.options.inject('s-1'), { sessionId: 's-1' })
+    assert.deepEqual(dock.options.inject(undefined), { sessionId: '' })
+    assert.equal(typeof dock.component, 'function')
   } finally {
     delete globalThis.window
   }

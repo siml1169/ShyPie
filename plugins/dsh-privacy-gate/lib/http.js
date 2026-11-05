@@ -122,12 +122,40 @@ export function saveSettings(file, record) {
 
 /**
  * Register the settings route on the host web server.
+/** Per-session toggle used by the composer switch. */
+export const SESSION_PATH = '/shypie-privacy/session'
+
+/** Local OCR engine capabilities, for the "auto" selector. */
+export const ENGINES_PATH = '/shypie-privacy/engines'
+
+/** Read `?session=` from a request URL. */
+function sessionIdOf(request) {
+  try {
+    const url = new URL(request.url ?? '/', 'http://127.0.0.1')
+    const value = url.searchParams.get('session')
+    return typeof value === 'string' && value.length > 0 ? value : ''
+  } catch {
+    return ''
+  }
+}
+
+/**
+ * Register every route the settings page and the composer switch use.
  * @param {object} webServer - the DSH web server service.
- * @param {{ file: string, apply: (value: object) => Promise<object>, describe: () => object, warn: (message: string) => void }} deps
- * @returns {() => void} disposer.
+ * @param {{
+ *   file: string,
+ *   apply: (value: object) => Promise<object>,
+ *   describe: () => object,
+ *   session: { get: (id: string) => object, set: (id: string, enabled: boolean) => object },
+ *   probeEngines: () => Promise<object[]>,
+ *   warn: (message: string) => void,
+ * }} deps
+ * @returns {() => void} disposer for all routes.
  */
-export function registerSettingsRoute(webServer, deps) {
-  return webServer.register({
+export function registerRoutes(webServer, deps) {
+  const disposers = []
+
+  disposers.push(webServer.register({
     kind: 'exact',
     path: SETTINGS_PATH,
     // One handler per (kind, path): GET reads, POST writes.
@@ -174,5 +202,68 @@ export function registerSettingsRoute(webServer, deps) {
         sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) })
       }
     },
-  })
+  }))
+
+  disposers.push(webServer.register({
+    kind: 'exact',
+    path: SESSION_PATH,
+    handler: async (request, response) => {
+      if (request.method === 'GET') {
+        const id = sessionIdOf(request)
+        if (id === '') {
+          sendJson(response, 400, { error: 'session query parameter is required' })
+          return
+        }
+        sendJson(response, 200, deps.session.get(id))
+        return
+      }
+      if (request.method !== 'POST') {
+        sendJson(response, 405, { error: 'method not allowed' })
+        return
+      }
+      if (!isSameOrigin(request)) {
+        sendJson(response, 403, { error: 'untrusted origin' })
+        return
+      }
+      try {
+        const body = await readJsonBody(request)
+        const id = typeof body?.session === 'string' ? body.session : ''
+        if (id === '' || typeof body?.enabled !== 'boolean') {
+          sendJson(response, 400, { error: 'session and enabled are required' })
+          return
+        }
+        // A human action from the composer: disabling here is allowed even when the agent may not
+        // do it itself (allowAgentDisable gates privacy_session, not the switch).
+        sendJson(response, 200, deps.session.set(id, body.enabled))
+      } catch (error) {
+        sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }))
+
+  disposers.push(webServer.register({
+    kind: 'exact',
+    path: ENGINES_PATH,
+    handler: async (request, response) => {
+      if (request.method !== 'GET') {
+        sendJson(response, 405, { error: 'method not allowed' })
+        return
+      }
+      try {
+        sendJson(response, 200, await deps.probeEngines())
+      } catch (error) {
+        sendJson(response, 500, { error: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }))
+
+  return () => {
+    for (const dispose of disposers) {
+      try {
+        dispose()
+      } catch {
+        // Teardown must never throw out of a plugin unload.
+      }
+    }
+  }
 }

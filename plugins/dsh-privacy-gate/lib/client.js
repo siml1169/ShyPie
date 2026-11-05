@@ -23,9 +23,11 @@ window.__ModuleLoader__.load({
     /** The only service this entry needs; anything else stays out of the boot-critical inject. */
     const inject = ['slots']
 
-    /** Section id and the route the host half serves. */
+    /** Section id and the routes the host half serves. */
     const NAMESPACE = 'privacy-gate'
     const ENDPOINT = '/shypie-privacy/settings'
+    const SESSION_ENDPOINT = '/shypie-privacy/session'
+    const ENGINES_ENDPOINT = '/shypie-privacy/engines'
 
     const SCOPE_VALUES = ['session', 'system']
     const OCR_VALUES = ['local', 'vision', 'auto']
@@ -126,6 +128,73 @@ window.__ModuleLoader__.load({
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `save failed (${response.status})`)
       return body
+    }
+
+    async function readSession(sessionId) {
+      const response = await fetch(`${SESSION_ENDPOINT}?session=${encodeURIComponent(sessionId)}`, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`session read failed (${response.status})`)
+      return await response.json()
+    }
+
+    async function writeSession(sessionId, enabled) {
+      const response = await fetch(SESSION_ENDPOINT, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ session: sessionId, enabled }),
+      })
+      const body = await response.json().catch(() => ({}))
+      if (!response.ok) throw new Error(typeof body.error === 'string' ? body.error : `toggle failed (${response.status})`)
+      return body
+    }
+
+    async function readEngines() {
+      const response = await fetch(ENGINES_ENDPOINT, { cache: 'no-store' })
+      if (!response.ok) throw new Error(`engine probe failed (${response.status})`)
+      const body = await response.json().catch(() => ({}))
+      return {
+        engines: Array.isArray(body.engines) ? body.engines : [],
+        note: typeof body.note === 'string' ? body.note : '',
+      }
+    }
+
+    /** Local engines the extractor reports; `auto` picks the first available one. */
+    function EnginesPanel() {
+      const [probe, setProbe] = react.useState(null)
+      react.useEffect(() => {
+        let live = true
+        readEngines()
+          .then((body) => {
+            if (live) setProbe(body)
+          })
+          .catch(() => {
+            if (live) setProbe({ engines: [], note: '' })
+          })
+        return () => {
+          live = false
+        }
+      }, [])
+      if (probe === null) return h('p', { style: S.hint }, 'Probing local OCR engines…')
+      if (probe.engines.length === 0) {
+        return h('p', { style: S.hint }, 'No local OCR engine was detected. PDFs with a text layer still work through pdftotext.')
+      }
+      return h(
+        'div',
+        { style: S.row },
+        h(
+          'ul',
+          { style: { ...S.hint, margin: 0, paddingLeft: '18px' } },
+          ...probe.engines.map((engine) =>
+            h(
+              'li',
+              { key: engine.name },
+              `${engine.name}: available`,
+              Array.isArray(engine.languages) && engine.languages.length > 0 ? ` (${engine.languages.join(', ')})` : '',
+              engine.detail ? ` — ${engine.detail}` : '',
+            ),
+          ),
+        ),
+        probe.note === '' ? null : h('p', { style: S.hint }, probe.note),
+      )
     }
 
     /** The Settings section. */
@@ -246,12 +315,31 @@ window.__ModuleLoader__.load({
           {
             id: 'privacy-ocr',
             label: 'OCR engine',
-            hint: 'local never leaves the machine; vision and auto are preferences only — no image is sent anywhere today.',
+            hint: 'auto uses the first available local engine — Windows OCR (winrt-ocr) on this machine. Nothing leaves the machine in any mode.',
           },
           h(
             'select',
             { id: 'privacy-ocr', style: S.input, value: draft.ocrEngine, onChange: update('ocrEngine'), disabled: busy },
             ...OCR_VALUES.map((option) => h('option', { key: option, value: option }, option)),
+          ),
+        ),
+        h(EnginesPanel),
+        h(
+          'div',
+          { style: S.row },
+          h('span', { style: S.label }, 'Manual OCR'),
+          h(
+            'ol',
+            { style: { ...S.hint, margin: 0, paddingLeft: '18px' } },
+            h('li', null, 'Put the document under one of the allowed paths above, or add its folder.'),
+            h('li', null, 'In the conversation, ask the agent: “run privacy_ocr on <path> and summarize it”.'),
+            h('li', null, 'The tool returns placeholder-masked text as the tool result; the agent reads that result as part of the prompt — you do not paste it.'),
+            h('li', null, 'Nothing is sent if the local engine cannot read the file: the tool fails closed instead of returning bytes.'),
+          ),
+          h(
+            'p',
+            { style: S.hint },
+            'privacy_extract handles PDFs with a text layer and Office files; privacy_ocr is for scans and images. privacy_scan checks free text without extracting anything.',
           ),
         ),
         h(
@@ -319,24 +407,125 @@ window.__ModuleLoader__.load({
     }
 
     /**
+     * Composer switch: on/off for the current session.
+     * `conversation.input.dock` is a list slot whose `inject` receives the session id, which is
+     * what the session route needs; the model selector itself is a single-slot owned by
+     * `dsh-client-ui-model-selection`, so a dock chip is the additive place for a third plugin.
+     */
+    function PrivacyGateSwitch(props) {
+      const sessionId = props.sessionId
+      const [state, setState] = react.useState({ status: 'loading', enabled: false, scope: 'session' })
+      const [busy, setBusy] = react.useState(false)
+      const [error, setError] = react.useState('')
+
+      react.useEffect(() => {
+        let live = true
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+          setState({ status: 'error', enabled: false, scope: 'session' })
+          return () => {
+            live = false
+          }
+        }
+        readSession(sessionId)
+          .then((body) => {
+            if (live) setState({ status: 'ready', enabled: body.enabled === true, scope: String(body.scope ?? 'session') })
+          })
+          .catch(() => {
+            if (live) setState({ status: 'error', enabled: false, scope: 'session' })
+          })
+        return () => {
+          live = false
+        }
+      }, [sessionId])
+
+      const toggle = async () => {
+        setBusy(true)
+        setError('')
+        try {
+          const body = await writeSession(sessionId, !state.enabled)
+          setState({ status: 'ready', enabled: body.enabled === true, scope: String(body.scope ?? 'session') })
+        } catch (cause) {
+          setError(cause instanceof Error ? cause.message : String(cause))
+        } finally {
+          setBusy(false)
+        }
+      }
+
+      const label =
+        state.status === 'loading' ? 'Privacy gate …' : state.status === 'error' ? 'Privacy gate ?' : `Privacy gate ${state.enabled ? 'on' : 'off'}`
+
+      return h(
+        'div',
+        { style: { display: 'flex', alignItems: 'center', gap: '8px', padding: '2px 0' } },
+        h(
+          'button',
+          {
+            type: 'button',
+            title:
+              state.scope === 'system'
+                ? 'Scope is system: the gate applies to every session and this switch does not change that.'
+                : state.enabled
+                  ? 'The gate is on for this session. Click to turn it off for this session.'
+                  : 'The gate is off for this session. Click to turn it on.',
+            disabled: busy || state.status !== 'ready' || state.scope === 'system',
+            onClick: toggle,
+            style: {
+              ...S.button,
+              padding: '3px 10px',
+              fontSize: '12px',
+              opacity: state.enabled ? 1 : 0.7,
+              borderColor: state.enabled ? 'rgba(46,160,67,0.8)' : 'rgba(128,128,128,0.35)',
+            },
+          },
+          `${state.enabled ? '●' : '○'} ${label}`,
+        ),
+        state.scope === 'system' ? h('span', { style: S.hint }, 'scope: system') : null,
+        error === '' ? null : h('span', { style: S.error }, error),
+      )
+    }
+
+    /**
      * Mount the settings section.
      * @param {object} ctx - browser plugin context.
      */
     function apply(ctx) {
       try {
-        ctx.slots.inject('settings.section', () =>
-          ctx.slots.register(
-            {
-              name: 'settings.section',
-              id: NAMESPACE,
-              order: 70,
-              label: () => 'Privacy gate',
-            },
-            PrivacyGateSection,
-          ),
-        )
+        ctx.slots.inject('settings.section', () => {
+          try {
+            return ctx.slots.register(
+              {
+                name: 'settings.section',
+                id: NAMESPACE,
+                order: 70,
+                label: () => 'Privacy gate',
+              },
+              PrivacyGateSection,
+            )
+          } catch {
+            return undefined
+          }
+        })
       } catch {
         // A host without this slot must not fail boot over a missing page.
+      }
+      try {
+        ctx.slots.inject('conversation.input.dock', () => {
+          try {
+            return ctx.slots.register(
+              {
+                name: 'conversation.input.dock',
+                id: NAMESPACE,
+                order: 30,
+                inject: (sessionId) => ({ sessionId: typeof sessionId === 'string' ? sessionId : '' }),
+              },
+              PrivacyGateSwitch,
+            )
+          } catch {
+            return undefined
+          }
+        })
+      } catch {
+        // No composer dock in this host: the switch is simply absent.
       }
     }
 

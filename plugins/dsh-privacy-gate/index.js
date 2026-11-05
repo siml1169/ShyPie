@@ -21,7 +21,7 @@ import z from '@deepseek-ai/schemastery'
 import { writeFileSync, mkdirSync, existsSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import { homedir } from 'node:os'
 
 import { resolveConfig } from './lib/config.js'
@@ -32,7 +32,7 @@ import { buildToolDefinitions } from './lib/tools.js'
 import { runExtractCli } from './lib/extract.js'
 import { createSessionRegistry } from './lib/sessions.js'
 import { buildLiveRowConfig, liveFromConfig } from './lib/settings.js'
-import { loadSettings, registerSettingsRoute } from './lib/http.js'
+import { loadSettings, registerRoutes } from './lib/http.js'
 
 /** Plugin name shown in diagnostics. */
 export const name = 'privacy-gate'
@@ -183,10 +183,44 @@ export async function applyLiveSettings(live, rowConfig, deps) {
  * @param {(message: string) => void} warn
  */
 function mountSettingsApi(ctx, file, rowConfig, deps, warn) {
+  // The OCR capability probe spawns PowerShell on Windows; cache it so a page refresh is cheap.
+  let engines = { at: 0, value: { engines: [], note: '' } }
+  const probeEngines = async () => {
+    if (Date.now() - engines.at < 5 * 60_000) return engines.value
+    let value = { engines: [], note: '' }
+    try {
+      const cliPath = deps.config.extractCli
+      if (typeof cliPath === 'string' && cliPath.length > 0) {
+        const module = join(dirname(cliPath), 'engines.js')
+        if (existsSync(module)) {
+          const mod = await import(pathToFileURL(module).href)
+          if (typeof mod.detectOcrEngines === 'function') {
+            // `detectOcrEngines()` answers `{ engines, detail }`, not a bare array.
+            const detection = await mod.detectOcrEngines()
+            const list = Array.isArray(detection) ? detection : Array.isArray(detection?.engines) ? detection.engines : []
+            value = {
+              engines: list.map((engine) => ({
+                name: String(engine?.name ?? 'unknown'),
+                available: true,
+                detail: Number.isSafeInteger(engine?.maxImageDimension) ? `max image ${engine.maxImageDimension}px` : '',
+                languages: Array.isArray(engine?.languages) ? engine.languages.map(String) : [],
+              })),
+              note: typeof detection?.detail === 'string' ? detection.detail : '',
+            }
+          }
+        }
+      }
+    } catch (error) {
+      warn(`OCR probe failed: ${error instanceof Error ? error.message : String(error)}`)
+    }
+    engines = { at: Date.now(), value }
+    return value
+  }
+
   ctx.inject(['webServer'], (host) => {
     host.effect(
       () =>
-        registerSettingsRoute(host.webServer, {
+        registerRoutes(host.webServer, {
           file,
           warn,
           apply: async (value) => {
@@ -198,8 +232,16 @@ function mountSettingsApi(ctx, file, rowConfig, deps, warn) {
             revision: loadSettings(file).revision,
             defaults: liveFromConfig(resolveConfig(rowConfig, DEPLOYMENT_DEFAULTS)),
           }),
+          session: {
+            get: (id) => deps.sessions.status(id),
+            set: (id, enabled) => {
+              deps.sessions.setEnabled(id, enabled)
+              return deps.sessions.status(id)
+            },
+          },
+          probeEngines,
         }),
-      'privacy-gate: settings route',
+      'privacy-gate: settings routes',
     )
   })
 }
