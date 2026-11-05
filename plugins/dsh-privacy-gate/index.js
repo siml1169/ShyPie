@@ -31,14 +31,15 @@ import { installGates } from './lib/gate.js'
 import { buildToolDefinitions } from './lib/tools.js'
 import { runExtractCli } from './lib/extract.js'
 import { createSessionRegistry } from './lib/sessions.js'
-import { buildLiveRowConfig, liveFromConfig, SETTINGS_NAMESPACE } from './lib/settings.js'
+import { buildLiveRowConfig, liveFromConfig } from './lib/settings.js'
+import { loadSettings, registerSettingsRoute } from './lib/http.js'
 
 /** Plugin name shown in diagnostics. */
 export const name = 'privacy-gate'
 
-/** Services this plugin needs; without `tools` it stays inactive. `settings` is core (`dsh-base`)
- * and backs the live configuration layer, so the plugin waits for it rather than probing. */
-export const inject = ['tools', 'settings']
+/** Services this plugin needs; without `tools` it stays inactive. `webServer` is resolved later
+ * in a child scope for the settings route, so it never blocks the entry's activation. */
+export const inject = ['tools']
 
 /** Directory of this package (the bundle root). */
 const HERE = dirname(fileURLToPath(import.meta.url))
@@ -142,34 +143,13 @@ function writeArtifact(target, content) {
   writeFileSync(target, content, { encoding: 'utf8', mode: 0o600 })
 }
 
-/** Settings namespace the GUI page binds to; kebab-case, like the row id. */
-export { SETTINGS_NAMESPACE, liveFromConfig } from './lib/settings.js'
-
-/**
- * Live settings surfaced by the Settings page. These layer over the row config, which stays
- * the deployment default — a value the user has not touched is inherited from the patch.
- */
-export const LiveConfig = z.object({
-  scope: z.string().default('session'),
-  allowPaths: z.array(z.string()).default([]),
-  extractCli: z.string().default(''),
-  detectors: z.array(z.string()).default([]),
-  personWords: z.array(z.string()).default([]),
-  blockNonTextResults: z.boolean().default(true),
-  auditEnabled: z.boolean().default(false),
-  auditPath: z.string().default(''),
-  egressAllowProviders: z.array(z.string()).default([]),
-  egressAllowModels: z.array(z.string()).default([]),
-  allowAgentDisable: z.boolean().default(false),
-  ocrEngine: z.string().default('local'),
-  visionProvider: z.string().default(''),
-  visionModel: z.string().default(''),
-})
+/** The live-settings projection shared with the Settings page. */
+export { liveFromConfig } from './lib/settings.js'
 
 /**
  * Re-resolve the config from the row layer plus a live settings value and swap it into the
  * dependency object the gates and tools read.
- * @param {object} live - a validated LiveConfig value.
+ * @param {object} live - a live settings value (see `liveFromConfig`).
  * @param {object} rowConfig - the row layer, kept below the live one.
  * @param {object} deps - the mutable dependency object.
  */
@@ -191,40 +171,37 @@ export async function applyLiveSettings(live, rowConfig, deps) {
 }
 
 /**
- * Register the `privacy-gate` settings namespace so the Settings page can edit it live.
- * The service is optional: without it the row config remains the only surface.
+ * Mount the same-origin settings API the page talks to.
+ *
+ * The page cannot use a settings namespace: the host api-proxy serves only an allowlist of
+ * namespaces and third-party ones answer `settings-not-exposed`. The working third-party plugins in
+ * this profile (Plugin Hub) instead register their own routes, so this mirrors that.
  * @param {object} ctx
+ * @param {string} file - JSON record outside the repository.
  * @param {object} rowConfig
  * @param {object} deps
  * @param {(message: string) => void} warn
  */
-async function registerSettings(ctx, rowConfig, deps, warn) {
-  if (typeof ctx.settings?.register !== 'function') {
-    warn('settings service unavailable; the row config is the only configuration surface')
-    return
-  }
-  let brand = (value) => value
-  try {
-    const mod = await import('@deepseek-ai/dsh-settings')
-    if (typeof mod?.settingsNamespace === 'function') brand = mod.settingsNamespace
-  } catch {
-    // Branding is a type-level concern; the raw namespace string is what the service stores.
-  }
-  try {
-    const scope = ctx.settings.register(brand(SETTINGS_NAMESPACE), LiveConfig, {
-      applies: 'live',
-      base: liveFromConfig(deps.config),
-    })
-    scope.watch(async (next) => {
-      try {
-        await applyLiveSettings(next, rowConfig, deps)
-      } catch (error) {
-        warn(`a live settings change was rejected: ${error instanceof Error ? error.message : String(error)}`)
-      }
-    })
-  } catch (error) {
-    warn(`settings namespace not registered: ${error instanceof Error ? error.message : String(error)}`)
-  }
+function mountSettingsApi(ctx, file, rowConfig, deps, warn) {
+  ctx.inject(['webServer'], (host) => {
+    host.effect(
+      () =>
+        registerSettingsRoute(host.webServer, {
+          file,
+          warn,
+          apply: async (value) => {
+            const base = liveFromConfig(resolveConfig(rowConfig, DEPLOYMENT_DEFAULTS))
+            await applyLiveSettings({ ...base, ...value }, rowConfig, deps)
+          },
+          describe: () => ({
+            value: liveFromConfig(deps.config),
+            revision: loadSettings(file).revision,
+            defaults: liveFromConfig(resolveConfig(rowConfig, DEPLOYMENT_DEFAULTS)),
+          }),
+        }),
+      'privacy-gate: settings route',
+    )
+  })
 }
 
 /**
@@ -268,6 +245,17 @@ export async function apply(ctx, config) {
     warn(`local redaction is unavailable (${deps.state.broken.message}); every gate fails closed`)
   }
 
+  // Persisted page settings layer over the row config, so a restart keeps what the user saved.
+  const settingsFile = join(PRIVATE_HOME, 'settings.json')
+  const saved = loadSettings(settingsFile)
+  if (Object.keys(saved.value).length > 0) {
+    try {
+      await applyLiveSettings({ ...liveFromConfig(resolved), ...saved.value }, rowConfig, deps)
+    } catch (error) {
+      warn(`saved settings were ignored (${error instanceof Error ? error.message : String(error)}); the row config applies`)
+    }
+  }
+
   installGates(deps)
 
   for (const definition of buildToolDefinitions({
@@ -283,7 +271,7 @@ export async function apply(ctx, config) {
     ctx.tools.register(definition)
   }
 
-  await registerSettings(ctx, rowConfig, deps, warn)
+  mountSettingsApi(ctx, settingsFile, rowConfig, deps, warn)
 
   // The model-visible history and every derived request are masked; the raw
   // prompt text still exists locally in the session log (`agent/inbox/spliced`).

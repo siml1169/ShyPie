@@ -105,13 +105,44 @@ sessions, which can only widen the ungated set; it never narrows it silently.
 | `agent/pre-step` | `payload.agent.id` (`Agent.id` is the session id) |
 | `llm/stream` | `request.sessionId`; absent on compaction and session-title calls, which `scope: session` leaves alone |
 
-### Settings namespace — the live layer
+### Settings page — own route, not a settings namespace
 
-The bundle registers a `privacy-gate` namespace with the host settings service
-(`ctx.settings.register`, `applies: 'live'`). It layers **over** the row config: a field the user has
-not touched inherits the patch, and a committed change re-resolves the config, rebuilds the redactor
-and re-creates the session registry without unloading the plugin. A change that would not validate is
-refused at write time, so the running owner keeps its last good value.
+`lib/client.js` is the browser half: it registers a **Privacy gate** section
+(`settings.section`, id `privacy-gate`, order 70) and renders `scope`, `allowPaths`, `extractCli`,
+`ocrEngine`, `visionProvider`/`visionModel` and `allowAgentDisable`.
+
+It does **not** use a settings namespace. In DSH 0.2.1-rc.5 the host api-proxy serves only the
+namespaces in `WEB_SETTINGS_NAMESPACES` (`@deepseek-ai/dsh-host-apiproxy/lib/types/api-proxy.js`), so
+a third-party namespace answers `settings-not-exposed` for both reads and writes. This is the same
+wall `dsh-client-ui-settings-plugins` documents as "a plugin distributed outside this repository
+cannot surface its own configuration here without a change in `packages/host/apiproxy`".
+
+The working pattern — used by Plugin Hub (`dsh-plugin`) in this profile — is a plugin-owned
+same-origin HTTP route, and that is what this bundle now does:
+
+| Piece | Where |
+|---|---|
+| `GET /shypie-privacy/settings` → `{ value, revision, defaults }` | [lib/http.js](lib/http.js) |
+| `POST /shypie-privacy/settings` with a field patch → applied live, then persisted | [lib/http.js](lib/http.js) |
+| Store: `~/.dsh/privacy/settings.json` (`{ version, revision, value }`, mode 0600, atomic) | `loadSettings` / `saveSettings` |
+| Mounting: `ctx.inject(['webServer'], (host) => host.effect(() => registerSettingsRoute(...)))` | [index.js](index.js) |
+
+Two details matter for safety and for boot:
+
+- **The route is a security boundary.** It binds loopback only, rejects a non-loopback `Host`
+  (plain HTTP and DNS rebinding), requires a matching `Origin` when the browser sends one, accepts a
+  fixed field allowlist (`sessionsPath` and friends stay host-only), validates the merged value
+  through `resolveConfig` before storing it, and answers `400` without persisting when validation
+  fails.
+- **Nothing new is injected at boot.** The entry injects `tools` only; `webServer` is requested in a
+  child scope, and the client entry injects `slots` only. The earlier attempt injected
+  `settingsScope`, which left the web-boot entry pending — DSH treats a pending entry as a failed
+  start.
+
+The renderer evaluates the client file through the same `window.__ModuleLoader__.load({ id, factory })`
+wrapper the core client packages use. `test/client.test.mjs` checks the export shape and the
+registration; `test/http.test.mjs` covers origin checks, the field allowlist, revision bumps and the
+rejection paths without a browser.
 
 | Field | Meaning |
 |---|---|
@@ -121,32 +152,8 @@ refused at write time, so the running owner keeps its last good value.
 | `ocrEngine` | `local` (default), `vision` or `auto` — a preference, not a call |
 | `visionProvider`, `visionModel` | the provider/model a future vision fallback would use; **no image is sent anywhere today** |
 
-Settings are read and written through the settings service (`api.settings.describe` /
-`settingsScope.set`), not by editing `settings.yaml` by hand.
-
-### The Settings page
-
-`lib/client.js` is the browser half: it registers a **Privacy gate** section
-(`settings.section`, id `privacy-gate`, order 70) that binds the namespace and renders `scope`,
-`allowPaths`, `extractCli`, `ocrEngine`, `visionProvider`/`visionModel` and `allowAgentDisable`.
-Writes carry the namespace revision and are applied live by the host.
-
-The renderer evaluates the file through the same `window.__ModuleLoader__.load({ id, factory })`
-wrapper the core client packages use; the harness in `test/client.test.mjs` proves the export
-shape, the binding and the "not exposed" rendering without a browser.
-
-**One host change is required in DSH 0.2.1-rc.5.** The api-proxy serves only the namespaces in
-`WEB_SETTINGS_NAMESPACES` (`@deepseek-ai/dsh-host-apiproxy/lib/types/api-proxy.js`), and its doc
-comment calls letting plugins declare their own exposure "deferred work". A registered but
-unlisted namespace answers `settings-not-exposed`, and the section then renders that state instead
-of a form. Patch the list, and re-run the patch after every DSH update:
-
-```bash
-node scripts/expose-settings-namespace.mjs           # adds 'privacy-gate', keeps a .bak-shypie
-node scripts/expose-settings-namespace.mjs --revert  # restores the backup
-```
-
-The patch is one array entry, idempotent, and reversible; it is lost when DSH replaces the package.
+Saved values layer over the row config and are re-applied on the next start; a value that no longer
+validates is ignored with a warning and the patch applies.
 
 ## Egress guard — fail closed before Magpie
 

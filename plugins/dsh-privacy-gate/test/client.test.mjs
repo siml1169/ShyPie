@@ -12,7 +12,7 @@ async function loadClient() {
     createElement: (type, props, ...children) => ({ type, props, children }),
     useState: (initial) => [typeof initial === 'function' ? initial() : initial, () => {}],
     useEffect: () => {},
-    useSyncExternalStore: (_subscribe, getSnapshot) => getSnapshot(),
+    useCallback: (fn) => fn,
   }
   let exports
   globalThis.window = {
@@ -28,22 +28,6 @@ async function loadClient() {
   }
   await import(`../lib/client.js?${Date.now()}`)
   const ctx = {
-    settingsScope: {
-      bind: (spec) => {
-        registered.push({ bound: spec })
-        return {
-          getSnapshot: () => ({ status: 'ready', value: {}, revision: 1, writable: true }),
-          subscribe: () => () => {},
-          load: async () => {},
-          set: async () => {},
-        }
-      },
-    },
-    inject: (_services, callback) => callback(ctx),
-    effect: (factory) => {
-      const dispose = factory()
-      return typeof dispose === 'function' ? dispose : () => {}
-    },
     slots: {
       inject: (slot, run) => run(),
       register: (options, component) => {
@@ -53,44 +37,37 @@ async function loadClient() {
     },
   }
   exports.apply(ctx)
-  return { exports, registered, react }
+  return { exports, registered }
 }
 
-test('the client half exports apply/inject and binds the privacy-gate namespace', async () => {
+test('the client half exports apply/inject and registers the section', async () => {
   const { exports, registered } = await loadClient()
   try {
     assert.equal(typeof exports.apply, 'function')
-    assert.ok(Array.isArray(exports.inject))
     // Only `slots` may be required: anything else can leave the web-boot entry pending, which DSH
     // treats as a failed start.
     assert.deepEqual(exports.inject, ['slots'])
     assert.equal(exports.name, 'privacy-gate')
 
-    const bound = registered.find((entry) => entry.bound !== undefined)
-    assert.deepEqual(bound.bound, { namespace: 'privacy-gate' })
-
     const section = registered.find((entry) => entry.slot === 'settings.section')
     assert.equal(section.options.id, 'privacy-gate')
+    assert.equal(section.options.order, 70)
     assert.equal(typeof section.options.label(), 'string')
     assert.equal(typeof section.component, 'function')
+    // No settings namespace: the page talks to the host over its own route instead.
+    assert.equal(section.options.inject, undefined)
   } finally {
     delete globalThis.window
   }
 })
 
-test('the section component renders without a live host and reports the missing exposure', async () => {
-  const { registered, react } = await loadClient()
+test('the section renders a loading state before its fetch settles', async () => {
+  const { registered } = await loadClient()
   try {
     const section = registered.find((entry) => entry.slot === 'settings.section')
-    const injected = section.options.inject()
-    // A window where the settings services never arrived: the component must render a message,
-    // not throw.
-    injected.resolveScope = () => null
-    const tree = section.component({ ...injected })
-    assert.equal(tree.type, 'div')
-    const text = JSON.stringify(tree)
-    assert.match(text, /not available/)
-    assert.equal(typeof react.createElement, 'function')
+    const tree = section.component({})
+    assert.equal(tree.type, 'p')
+    assert.match(JSON.stringify(tree), /Loading the privacy gate settings/)
   } finally {
     delete globalThis.window
   }
