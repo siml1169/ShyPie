@@ -10,10 +10,10 @@
 // would be wrong. What it owns is structure:
 //
 //   1. a content part the masker cannot mask (image / file / document / audio /
-//      video, in any of the four agent APIs) is turned away with 403 for every
+//      video, in any of the four agent APIs) is turned away with 422 for every
 //      model that is not explicitly allowlisted as LOCAL;
 //   2. an encoded blob (base64 / base64url / hex / data URI / PDF or ZIP magic)
-//      smuggled through a TEXT field is turned away with 403;
+//      smuggled through a TEXT field is turned away with 422;
 //   3. a model allowlist (globs) turns away everything else, naming the model and
 //      the policy, never the content;
 //   4. a request this gate cannot fully inspect (unknown protocol, unreadable
@@ -34,7 +34,7 @@
 //
 // OPTIONS (ctx.options, set with `magpie plugin options <name> '<json>'`)
 //   allowModels: string[]        globs; [] (default) allows every model. Anything
-//                                else is rejected with 403 naming the model.
+//                                else is rejected with 422 naming the model.
 //   localModels: string[]        globs; models that may RECEIVE binary/document
 //                                parts, because the endpoint is on this machine or
 //                                the local network (Ollama, LM Studio, ...). []
@@ -59,7 +59,8 @@
 //   logEveryRows: number         50. Emit one usage line every N usage rows.
 //
 // The hooks below return the body unchanged when they allow it, and otherwise
-// return the value of ctx.reject(403, message). No message ever contains request
+// return the value of ctx.reject(422, message). 422 keeps DSH from reporting an auth failure:
+// it maps 401/403 to AUTH, which the client renders as API key is invalid. No message ever contains request
 // content: only a part TYPE, a model id, a protocol name and counters.
 
 // ---------------------------------------------------------------------------
@@ -741,7 +742,9 @@ function rejectOrBlank(body, ctx, block, opts) {
       counters.rejected++;
       // In magpie's host, ctx.reject performs the rejection and returns nothing.
       // Calling it is the rejection; do not treat "nothing returned" as a failure.
-      ctx.reject(403, block.message);
+      // 422, not 403: DSH maps 401/403 to the AUTH failure code, which the UI renders as
+      // the useless API key is invalid. A policy rejection is not an auth failure.
+      ctx.reject(422, block.message);
       return undefined;
     }
   } catch (e) {

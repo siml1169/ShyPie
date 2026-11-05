@@ -172,7 +172,7 @@ test('an image part is rejected by the gateway for a remote model', async () => 
   ])
   const decision = runHook(onRequest, body, {})
   assert.equal(decision.allowed, false)
-  assert.equal(decision.status, 403)
+  assert.equal(decision.status, 422)
   assert.ok(!decision.message.includes('iVBORw0KGgo'), 'rejection must never echo the payload')
 })
 
@@ -191,12 +191,12 @@ test('a one-page invoice encoded as base64 is rejected by the gateway (small pay
 
   const contiguous = runHook(onRequest, chatBody([textPart(`file: ${b64}`)]), {})
   assert.equal(contiguous.allowed, false, 'a ~1 KB document must not slip under a 2 KB threshold')
-  assert.equal(contiguous.status, 403)
+  assert.equal(contiguous.status, 422)
 
   const wrapped = (b64.match(/.{1,64}/g) || []).join('\n')
   const byLines = runHook(onRequest, chatBody([textPart(wrapped)]), {})
   assert.equal(byLines.allowed, false, 'line wrapping must not defeat the blob rule')
-  assert.equal(byLines.status, 403)
+  assert.equal(byLines.status, 422)
 })
 
 test('a Format-Hex style hex dump of the invoice is rejected by the gateway', async () => {
@@ -209,7 +209,7 @@ test('a Format-Hex style hex dump of the invoice is rejected by the gateway', as
   }
   const decision = runHook(onRequest, chatBody([textPart(lines.join('\n'))]), {})
   assert.equal(decision.allowed, false)
-  assert.equal(decision.status, 403)
+  assert.equal(decision.status, 422)
 })
 
 test('document bytes smuggled as base64 text are rejected', async () => {
@@ -218,7 +218,7 @@ test('document bytes smuggled as base64 text are rejected', async () => {
   const body = chatBody([textPart(`here is the file: ${blob}`)])
   const decision = runHook(onRequest, body, {})
   assert.equal(decision.allowed, false)
-  assert.equal(decision.status, 403)
+  assert.equal(decision.status, 422)
 })
 
 test('a model outside the allowlist is rejected', async () => {
@@ -226,7 +226,7 @@ test('a model outside the allowlist is rejected', async () => {
   const body = chatBody([textPart('hello')])
   const decision = runHook(onRequest, body, { model: 'unknown/vendor-model' })
   assert.equal(decision.allowed, false)
-  assert.equal(decision.status, 403)
+  assert.equal(decision.status, 422)
 })
 
 test('the middleware uses standard JavaScript only (moejs constraint)', () => {

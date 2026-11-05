@@ -126,7 +126,7 @@ In a **new** session:
 ## 3. Verify the gateway firewall
 
 With the middleware on, a request that carries an image part to a model whose provider is not
-declared local must fail with a 403 whose message says the part cannot be masked locally. Magpie →
+declared local must fail with a 422 whose message says the part cannot be masked locally. Magpie →
 **Settings → Plugins** shows the middleware's hook counts and failures.
 
 If a legitimate request is rejected, extract the document locally and send the redacted text — do

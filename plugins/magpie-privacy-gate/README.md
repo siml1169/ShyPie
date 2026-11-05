@@ -93,12 +93,11 @@ the `magpie-` prefix — that spelling is **UNVERIFIED**, see [the hooks evidenc
 
 | Option | Default | Meaning |
 |---|---|---|
-| `allowModels` | `[]` | Globs against the model id as the agent asked (`<provider>/<model>` or a routing group's name, <https://usemagpie.ai/docs/integrate#gateway>). `[]` = every model passes this rule. Anything else gets a 403 naming the model and the policy. |
-| `localModels` | `[]` | Globs of models that may receive binary/document parts on `onRequest`. Pair with `localProviders`: with `localModels` alone, `onProvider` blanks the content rather than sending it. `[]` = no model may receive bytes. |
+| `allowModels` | `[]` | Globs against the model id as the agent asked (`<provider>/<model>` or a routing group's name, <https://usemagpie.ai/docs/integrate#gateway>). `[]` = every model passes this rule. Anything else gets a 422 naming the model and the policy. || `localModels` | `[]` | Globs of models that may receive binary/document parts on `onRequest`. Pair with `localProviders`: with `localModels` alone, `onProvider` blanks the content rather than sending it. `[]` = no model may receive bytes. |
 | `allowUnknownProtocol` | `false` | `ctx.protocol` is one of `chat`, `responses`, `anthropic`, `gemini`. Anything else cannot be classified and is rejected. Only turn this on if you have taught yourself what the body looks like. |
 | `localProviders` | `[]` | Globs of *provider* ids that may receive binary parts. Checked in `onProvider`, where the provider is known: a local-sounding model id alone is not enough (`[]` = no provider may receive bytes). |
 | `scanChars` / `maxNodes` / `maxDepth` | `200000` / `40000` / `40` | Deterministic text-inspection budget per request (edges of long fields). Long bodies are not rejected; over budget the gate logs degraded. `maxNodes`/`maxDepth` overflow is still a rejection. |
-| `blobBase64Chars` / `blobHexChars` | `400` / `400` | An encoded run at or above this is a **blob** and gets a 403. This is deliberately below a one-page invoice (~1.3 k base64 chars), so a false positive on a long hash or minified line is possible; raise these only if you accept the larger document that then passes. |
+| `blobBase64Chars` / `blobHexChars` | `400` / `400` | An encoded run at or above this is a **blob** and gets a 422. This is deliberately below a one-page invoice (~1.3 k base64 chars), so a false positive on a long hash or minified line is possible; raise these only if you accept the larger document that then passes. |
 | `logMaxLines` | `40` | Self-cap on `console.log`. magpie's own cap is 60 lines a minute (<https://usemagpie.ai/docs/plugins#middleware>). |
 | `logEveryRows` | `50` | One usage line every N usage rows. |
 
@@ -112,7 +111,7 @@ The scan is **bounded by design**, so a summary must not claim that everything w
   still run on every request. An encoded blob hidden in the unscanned middle of an enormous text
   field can therefore pass this layer; the DSH side's ingestion gate scans each tool result
   separately and is the control for that.
-- An encoded-looking run of **400+ base64 or hex characters** is a blob and gets a 403 — a long hash,
+- An encoded-looking run of **400+ base64 or hex characters** is a blob and gets a 422 — a long hash,
   a minified line or a vendor signature are the expected false positives. Raise
   `blobBase64Chars`/`blobHexChars` deliberately if you need them.
 - **Vendor-sealed signatures are exempt from the blob scan, but only inside the vendor's own block**:
@@ -134,7 +133,7 @@ Settings → Privacy (<https://usemagpie.ai/docs/masking>):
 4. **Find with a local model** → On, **AstrLink Guard** (local, ~39 MB; it is what finds names and
    addresses in free text).
 5. **When a value is found** → choose **Block** for the kinds that must never be sent instead of
-   masked. That is the text-level "block the transfer" lever; this plugin's 403 is the structural
+   masked. That is the text-level "block the transfer" lever; this plugin's 422 is the structural
    one.
 6. **Count me as a user** → Off (and *Share the agents, providers and models I use* → Off) if you
    want magpie's own daily count gone too: `"noStats": true`, <https://usemagpie.ai/docs/privacy>.
@@ -166,7 +165,7 @@ magpie plugin
 # Settings → Plugins → the row shows the hooks, how many calls, average time, failures
 # (https://usemagpie.ai/docs/plugins#middleware)
 
-# 3. a blocked request: expect HTTP 403 and a message starting with "privacy-gate:".
+# 3. a blocked request: expect HTTP 422 and a message starting with "privacy-gate:".
 #    Replace MODEL with any NON-local id from `curl -s http://127.0.0.1:3425/v1/models`.
 curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:3425/v1/chat/completions \
   -H 'Authorization: Bearer magpie-privacy-gate-selftest' \
@@ -175,7 +174,7 @@ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:3425/v1/chat/completions \
         {"type":"text","text":"self test"},
         {"type":"image_url","image_url":{"url":"data:image/png;base64,AAAA"}}]}]}'
 # -> privacy-gate: a content part of type "image_url" cannot be masked locally; …
-#    HTTP 403, and nothing was sent upstream (routing never happened).
+#    HTTP 422, and nothing was sent upstream (routing never happened).
 
 # 4. with a model in `localModels` AND its provider in `localProviders`, the request is accepted; with only `localModels`, onProvider blanks the content.
 
@@ -193,7 +192,7 @@ After the first real request, **Insights → Masking** shows each request with w
 
 ## What happens when the gate blocks
 
-A 403 is the intended outcome, not a bug. The bytes never reach the provider. Convert the document
+A 422 is the intended outcome, not a bug. The bytes never reach the provider. Convert the document
 locally and send text instead: in this workflow the DSH side provides `privacy_extract` /
 `privacy_ocr` (local `pdftotext`/OCR, redacted before it enters the conversation), so the fix is
 "extract locally → send the redacted text", never "turn the gate off". A long conversation is not
@@ -201,7 +200,20 @@ rejected for size: the text scan has a deterministic character budget (`scanChar
 structural part checks always run. Do not chase a timeout instead — a hook that runs out of time does
 **not** block the request, magpie sends it as it was (<https://usemagpie.ai/docs/plugins#middleware>).
 This is an engine-level fail-open ([yetone/magpie#5305](https://github.com/yetone/magpie/issues/5305));
-the budgets keep the measured large bodies inside the window, but cannot turn a timeout into a 403.
+the budgets keep the measured large bodies inside the window, but cannot turn a timeout into a 422.
+
+The status code is deliberate. DSH maps provider **401/403 → `AUTH`** and renders that as
+"API key is invalid", so a 403 from a gate inside the base URL is indistinguishable from bad
+credentials — the one message that sends people to re-enter a working key. 422 is a validation
+failure, so DSH shows the gate's own sentence ("`privacy-gate: blocked code=BINARY_PART …`") and the
+cause is visible in the transcript. The full reason, the policy field, and the offending part type
+are in the body and in Magpie's log (`%LOCALAPPDATA%\magpie\logs\app.log`).
+
+**`BINARY_PART` with the gate "off"** is the most common surprise: this middleware and the DSH
+plugin are two independent gates. Turning the DSH one off does not disable this one, because it runs
+inside the Magpie process. To send an image or a document you must either remove the attachment,
+send the extracted text instead, or declare the target model local (`localModels`) — binary parts are
+allowed only for paths you have declared local.
 
 ## Files
 

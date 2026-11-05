@@ -337,9 +337,9 @@ the same gateway (Copilot, Cursor, Claude Code, scripts):
 
 | Rule | Hook | Decision |
 |---|---|---|
-| Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(403, …)` |
-| Text part that is really a blob (base64 ≥ 400 contiguous **or** line-wrapped, spaced hex, `data:` URI, PDF/ZIP magic) | `onRequest` | `ctx.reject(403, …)` |
-| Model not matching `allowModels` | `onRequest` | `ctx.reject(403, …)` |
+| Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(422, …)` |
+| Text part that is really a blob (base64 ≥ 400 contiguous **or** line-wrapped, spaced hex, `data:` URI, PDF/ZIP magic) | `onRequest` | `ctx.reject(422, …)` |
+| Model not matching `allowModels` | `onRequest` | `ctx.reject(422, …)` |
 | Vendor-sealed signature/id field inside its vendor block (Anthropic thinking `signature`, Responses reasoning `encrypted_content`, Gemini part `thoughtSignature`, vendor item `id`) | `onRequest` | exempt from the blob scan; the same key in tool arguments or message text is still scanned |
 | Binary part on a provider not declared local (`onProvider`, where the provider id is known) | `onProvider` | content blanked (cannot reject there) |
 | Everything else | `onRequest` | pass through untouched |
@@ -402,7 +402,7 @@ Every row is a path where data *would* move; the design's answer is in the last 
 | `read_image` on a document | raster enters context | **denied** outside `allowPaths` |
 | Base64 blob in a text tool result | text-passes masking | **blocked** by `BLOB` detector (400 chars, contiguous/wrapped/spaced-hex/data-URI) |
 | One-page invoice encoded as base64 (~1.3 k chars) | under the old 2 k threshold → passed | **blocked** (threshold 400; measured in the e2e suite) |
-| Image part in an LLM request to a remote provider | sent as-is | **rejected 403** by Magpie middleware |
+| Image part in an LLM request to a remote provider | sent as-is | **rejected 422** by Magpie middleware |
 | Image part to a model allowlisted as local | sent | allowed (it never leaves the machine) |
 | Masker unavailable / turned off | request could go unmasked | DSH gate unconditional; Magpie masking fails closed (503); middleware still rejects non-text |
 | Detector false negative | value goes out | residual risk; second layer + audit counts + explicit limitation |

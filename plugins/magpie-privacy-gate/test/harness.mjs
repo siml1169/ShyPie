@@ -93,17 +93,17 @@ function reject(gate, body, ctx, seen, contains) {
   const out = gate.onRequest(body, ctx);
   assert.equal(out, undefined, "a rejected request returns nothing after ctx.reject(...)");
   assert.equal(seen.length, 1, "exactly one reject per request");
-  assert.equal(seen[0].status, 403);
+  assert.equal(seen[0].status, 422);
   const message = seen[0].message;
   assert.ok(typeof message === "string" && message.length > 0);
   if (contains) {
     assert.ok(
       message.toLowerCase().includes(contains.toLowerCase()),
-      `expected the 403 message to mention "${contains}", got: ${message}`
+      `expected the 422 message to mention "${contains}", got: ${message}`
     );
   }
-  assert.ok(!message.includes(BLOB_24), "a 403 message must never echo request content");
-  assert.ok(!message.includes("data:image"), "a 403 message must never echo request content");
+  assert.ok(!message.includes(BLOB_24), "a 422 message must never echo request content");
+  assert.ok(!message.includes("data:image"), "a 422 message must never echo request content");
   return message;
 }
 
@@ -318,7 +318,7 @@ test("chat: text-only request is allowed unchanged", () => {
   assert.equal(gate.logs.length, 0, "an allowed request logs nothing");
 });
 
-test("chat: image_url part is rejected with 403 and no content echo", () => {
+test("chat: image_url part is rejected with 422 and no content echo", () => {
   const gate = loadGate();
   const { ctx, seen } = mkCtx();
   reject(gate, chat.imageUrl(), ctx, seen, "image_url");
@@ -570,7 +570,7 @@ test("policy: ctx.reject returning nothing is still a rejection", () => {
   const out = gate.onRequest(chat.imageUrl(), ctx);
   assert.equal(out, undefined, "returning nothing after ctx.reject is the rejection");
   assert.equal(seen.length, 1);
-  assert.equal(seen[0].status, 403);
+  assert.equal(seen[0].status, 422);
 });
 
 test("policy: a body that is not an object is rejected", () => {
@@ -578,7 +578,7 @@ test("policy: a body that is not an object is rejected", () => {
   const { ctx, seen } = mkCtx();
   const out = gate.onRequest("just a string", ctx);
   assert.equal(out, undefined);
-  assert.equal(seen[0].status, 403);
+  assert.equal(seen[0].status, 422);
 });
 
 test("policy: an unreadable body rejects instead of throwing (fail closed)", () => {
@@ -596,7 +596,7 @@ test("policy: an unreadable body rejects instead of throwing (fail closed)", () 
     out = gate.onRequest(body, ctx);
   }, "the hook must never throw: magpie would then send the request as it was");
   assert.equal(out, undefined);
-  assert.equal(seen[0].status, 403);
+  assert.equal(seen[0].status, 422);
   assert.ok(!seen[0].message.includes("synthetic-boom"));
 });
 
