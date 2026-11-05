@@ -319,10 +319,13 @@ unexpected — the request then goes out *as it was*. The gate therefore never r
 to block: it evaluates explicitly and calls `ctx.reject` (in magpie's host that call performs the
 rejection and returns nothing, so the call itself is the rejection), treats an unreadable body / unknown
 protocol as a rejection, and uses `onProvider` (which cannot reject) to blank the content containers
-as a last structural defence. Its text scan has a deterministic character budget (`scanChars`,
-200 k chars per request) and waits on no clock, so it cannot overrun the 250 ms hook budget and be
-silently ignored: long conversations keep working, the middle of an enormous text is not
-blob-scanned, and the structural checks always complete first. `onProvider` additionally requires
+as a last structural defence. Its text scan has deterministic character and node budgets (`scanChars`, `maxNodes`) and waits on
+no clock. The measured issue-sized bodies (30k one-part messages; 200k 400-char runs) return the
+gate's 403 inside the 250 ms hook window in a live Magpie 0.1.3038 gateway. This reduces, but does
+not remove, the engine's fail-open behaviour: a hook that still exceeds 250 ms is dropped and the
+request is sent unchanged ([magpie#5305](https://github.com/yetone/magpie/issues/5305)). A true
+fail-closed timeout needs an engine change (a gate declaration or a gate-specific budget); the
+plugin cannot convert an engine timeout into a rejection. `onProvider` additionally requires
 the *provider* id (not just the model id) to be in `localProviders` before bytes may pass.
 
 **Deliberate non-goal:** it does not re-mask text. `onRequest` runs *before* Magpie's redaction and

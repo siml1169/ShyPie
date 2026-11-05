@@ -73,24 +73,35 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
   next turn through.
 - Copilot-routed OpenAI Responses `encrypted_content` (5,208 chars) and Anthropic thinking
   `signature` (892 chars) replayed through the live gateway and returned HTTP 200.
+- Magpie engine fail-open confirmed ([`yetone/magpie#5305`](https://github.com/yetone/magpie/issues/5305)):
+  `requestLimit` is 250 ms and a timed-out `onRequest` is logged, then the request continues unchanged.
+  Reproduced with a 3.59 MB / 60k-message body at `maxNodes: 500000`: the log said
+  `onRequest: took too long`, the gate did not answer, and the request reached the upstream (400 for
+  the deliberately invalid model). At the default `maxNodes: 40000`, a 30k-message body returned
+  403 in 0.29 s wall and 200k 400-char runs in 0.015 s, so the measured issue bodies no longer time
+  out — but a slower host or a body under a raised budget can still fail open.
 - A DSH headless session patched to `copilot/gpt-6.1-sol` resumed a second turn through the same
   gateway.
 - Not exercised: the DSH GUI session, real streaming paths against a real upstream, and CI live tests.
 
 ## 6. Open items / blockers
 
-1. **Magpie PR #685** — open, awaiting re-review/merge. The in-tree package has the site-scoped
+1. **Magpie engine fail-open on hook timeout** — [`yetone/magpie#5305`](https://github.com/yetone/magpie/issues/5305)
+   is confirmed, not fixed by this project. The gate's budgets reduce the chance of a timeout but
+   cannot turn an engine timeout into a rejection; the fix belongs in Magpie (gate declaration or a
+   gate-specific budget).
+2. **Magpie PR #685** — open, awaiting re-review/merge. The in-tree package has the site-scoped
    signature/role/type exemption, newest-first text budget, linear blob scan, 41 cases, and is rebased on current `main` (`a51ffb7`).
-2. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
+3. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
    yet; it publishes only after the PR merges through the community workflow.
-3. **Legacy npm cleanup** — the external package `@shypie_privacy/magpie-privacy-gate` is still
+4. **Legacy npm cleanup** — the external package `@shypie_privacy/magpie-privacy-gate` is still
    installable and its `0.1.1` stage still exists. Both writes need a fresh npm OTP:
    `npm stage reject a9792716-3890-46a2-ae6f-c92e0fcf3aae` and
    `npm deprecate "@shypie_privacy/magpie-privacy-gate@*" "…"`.
-4. **DSH catalog** — the entry is ready; the repository now meets the one-day-age requirement, but
+5. **DSH catalog** — the entry is ready; the repository now meets the one-day-age requirement, but
    the awesome-dsh-plugin PR has not been opened.
-5. **GitHub release** — tag `v0.1.1` exists; no release has been created from it.
-6. **ShyPie legacy source** — `plugins/magpie-privacy-gate` is kept only so the folder install
+6. **GitHub release** — tag `v0.1.1` exists; no release has been created from it.
+7. **ShyPie legacy source** — `plugins/magpie-privacy-gate` is kept only so the folder install
    works until the community package publishes; remove or archive it afterwards.
 
 ## 7. Definition of done for the initial goal
@@ -112,5 +123,6 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - Install and verification: [docs/install.md](docs/install.md).
 - Release, stage IDs and marketplace state: [docs/publish.md](docs/publish.md).
 - Magpie submission: [PR #685](https://github.com/magpie-community/plugins/pull/685).
+- Magpie engine timeout fail-open: [yetone/magpie#5305](https://github.com/yetone/magpie/issues/5305).
 - Security review (historical + addendum):
   [docs/research/security-review.md](docs/research/security-review.md).

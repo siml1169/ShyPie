@@ -200,6 +200,8 @@ locally and send text instead: in this workflow the DSH side provides `privacy_e
 rejected for size: the text scan has a deterministic character budget (`scanChars`) and the
 structural part checks always run. Do not chase a timeout instead — a hook that runs out of time does
 **not** block the request, magpie sends it as it was (<https://usemagpie.ai/docs/plugins#middleware>).
+This is an engine-level fail-open ([yetone/magpie#5305](https://github.com/yetone/magpie/issues/5305));
+the budgets keep the measured large bodies inside the window, but cannot turn a timeout into a 403.
 
 ## Files
 
