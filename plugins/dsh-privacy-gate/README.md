@@ -122,13 +122,29 @@ refused at write time, so the running owner keeps its last good value.
 Settings are read and written through the settings service (`api.settings.describe` /
 `settingsScope.set`), not by editing `settings.yaml` by hand.
 
-**A third-party page cannot persist settings in DSH 0.2.1-rc.5.**
-`dsh-client-ui-settings-plugins` states it: *"Exposure is a Host allowlist, not a plugin
-declaration — a namespace absent from the api-proxy's allowlist answers `settings-not-exposed` even
-when its owner registered it, so a plugin distributed outside this repository cannot surface its own
-configuration here without a change in `packages/host/apiproxy`."* The registered namespace is the
-layer a future host allowlist — or a dedicated page, once the client injection contract is confirmed
-— can bind to. Today the reachable surfaces are the row config and `privacy_session`.
+### The Settings page
+
+`lib/client.js` is the browser half: it registers a **Privacy gate** section
+(`settings.section`, id `privacy-gate`, order 70) that binds the namespace and renders `scope`,
+`allowPaths`, `extractCli`, `ocrEngine`, `visionProvider`/`visionModel` and `allowAgentDisable`.
+Writes carry the namespace revision and are applied live by the host.
+
+The renderer evaluates the file through the same `window.__ModuleLoader__.load({ id, factory })`
+wrapper the core client packages use; the harness in `test/client.test.mjs` proves the export
+shape, the binding and the "not exposed" rendering without a browser.
+
+**One host change is required in DSH 0.2.1-rc.5.** The api-proxy serves only the namespaces in
+`WEB_SETTINGS_NAMESPACES` (`@deepseek-ai/dsh-host-apiproxy/lib/types/api-proxy.js`), and its doc
+comment calls letting plugins declare their own exposure "deferred work". A registered but
+unlisted namespace answers `settings-not-exposed`, and the section then renders that state instead
+of a form. Patch the list, and re-run the patch after every DSH update:
+
+```bash
+node scripts/expose-settings-namespace.mjs           # adds 'privacy-gate', keeps a .bak-shypie
+node scripts/expose-settings-namespace.mjs --revert  # restores the backup
+```
+
+The patch is one array entry, idempotent, and reversible; it is lost when DSH replaces the package.
 
 ## Egress guard — fail closed before Magpie
 
