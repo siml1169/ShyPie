@@ -100,20 +100,19 @@ test('character and node budgets reject instead of degrading', () => {
   assert.equal(inspectEgress(request([{ role: 'user', content: blocks }]), deps({ config: { egressMaxNodes: 20 } })).reason, 'LIMIT_NODES')
 })
 
-test('the llm/stream listener throws before next and audits without content', () => {
+test('the llm/stream listener returns a terminal error stream before next', async () => {
   let nextCalls = 0
   const audit = { records: [], record(entry) { this.records.push(entry) } }
   const guard = createEgressGuard({ ...deps(), audit })
-  let error
-  try {
-    guard(request([text('BLOB')]), () => { nextCalls += 1 })
-  } catch (caught) {
-    error = caught
-  }
-  assert.ok(error instanceof Error)
-  assert.match(error.message, /egress blocked/)
-  assert.equal(error.code, EGRESS_BLOCKED_CODE)
+  const stream = guard(request([text('BLOB')]), () => { nextCalls += 1 })
   assert.equal(nextCalls, 0)
+  const chunks = []
+  for await (const chunk of stream) chunks.push(chunk)
+  assert.equal(chunks.length, 1)
+  assert.equal(chunks[0].type, 'finish')
+  assert.equal(chunks[0].reason.kind, 'error')
+  assert.equal(chunks[0].reason.failure.message, 'privacy-gate: egress blocked (BLOB)')
+  assert.equal(chunks[0].reason.failure.code, EGRESS_BLOCKED_CODE)
   assert.equal(audit.records.length, 1)
   assert.equal(audit.records[0].kind, 'egress-blocked')
   assert.equal(JSON.stringify(audit.records[0]).includes('BLOB'), false)
@@ -131,4 +130,24 @@ test('the llm/stream listener calls next for an allowed request', () => {
 test('an unavailable redactor blocks instead of passing', () => {
   assert.equal(inspectEgress(request([text('hello')]), deps({ redactor: null })).reason, 'REDACTOR_UNAVAILABLE')
   assert.equal(inspectEgress(request([text('hello')]), deps({ config: {}, redactor: null })).reason, 'REDACTOR_UNAVAILABLE')
+})
+
+test('reused request messages are inspected only once', () => {
+  let scans = 0
+  const counting = { scan() { scans += 1; return [] } }
+  const guard = createEgressGuard({ ...deps(), redactor: counting })
+  const reused = { role: 'user', content: [{ type: 'text', text: 'hello' }] }
+  const req = request([reused])
+  guard(req, () => {})
+  guard(req, () => {})
+  assert.equal(scans, 1)
+  guard(request([reused, { role: 'user', content: [{ type: 'text', text: 'new' }] }]), () => {})
+  assert.equal(scans, 2)
+})
+
+test('the terminal error stream carries the stable code', async () => {
+  const guard = createEgressGuard(deps())
+  const chunks = []
+  for await (const chunk of guard(request([text('PII')]), () => {})) chunks.push(chunk)
+  assert.equal(chunks[0].reason.failure.code, EGRESS_BLOCKED_CODE)
 })

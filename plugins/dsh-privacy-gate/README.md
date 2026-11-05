@@ -73,7 +73,7 @@ toolTimeoutMs: 120000
 maxExtractChars: 200000
 egressAllowProviders: []     # [] = every provider; exact, * or prefix/* patterns
 egressAllowModels: []        # [] = every model
-egressMaxChars: 2000000      # throw instead of passing an uninspectable request
+egressMaxChars: 2000000      # reject instead of passing an uninspectable request
 egressMaxNodes: 200000
 ```
 
@@ -83,9 +83,11 @@ There is no `failClosed` switch: the gate always fails closed.
 
 DSH's `llm/stream` waterfall wraps adapter dispatch (`dsh-llm` `streamWithRegistration`). This
 bundle registers a **prepended, global** listener that inspects the final
-`{provider, model, messages, tools}` request and **throws before `next()`**. That happens in the DSH
-process, before any provider HTTP call, so Magpie never sees a blocked request and Magpie's 250 ms
-middleware timeout cannot drop the verdict.
+`{provider, model, messages, tools}` request and, before calling `next()`, returns a terminal error
+stream. DSH's agent loop turns that into its own `LlmError` with code **`PRIVACY_EGRESS_BLOCKED`**.
+No provider adapter is called, so Magpie never sees a blocked request and Magpie's 250 ms timeout
+cannot drop the verdict. The guard does not throw out of the hook, which keeps the turn's error
+structured.
 
 The guard rejects:
 
@@ -100,6 +102,17 @@ It does not mask or rewrite: the request is frozen, so rejection is the only act
 declarations (`request.tools`, `request.toolHistory`) are schema, not conversation content, and are
 skipped. The existing ingestion gates still run first; this is the final assertion that they left
 nothing un-maskable.
+
+**PII policy (decided).** The guard **blocks any surviving PII**, even though Magpie's Privacy
+masking could mask text. DSH can target providers other than Magpie, and a PII hit at the final
+request means the DSH ingestion layer left something behind; delegating that to a downstream masker
+would silently weaken this boundary. When every DSH request is forced through Magpie with masking
+enabled this check is intentionally redundant and stricter, not wrong.
+
+**Incremental scan.** DSH request messages are frozen and reused across steps. The guard caches the
+message objects it has successfully inspected and scans only new messages; the first request pays
+the full cost, later steps do not rescan the history. On a 5,000-block synthetic request the first
+pass was ~107 ms and later requests with one new message ~0.1 ms in Node 24 with the real redactor.
 
 `failClosed` is not a setting — failing closed is the only mode: if `vendor/pii-core.js` cannot load,
 the key file is unusable, a redactor throws, or a document path is outside `allowPaths`, the gates
@@ -120,7 +133,7 @@ only a path and counts (the interface contract round-trip rule).
 ## Tests
 
 ```
-node --test                     # 81 tests, no network, synthetic fixtures only
+node --test                     # 100 tests, no network, synthetic fixtures only
 node scripts/vendor-core.mjs --check   # vendor copy is current
 node scripts/activation-check.mjs      # needs @deepseek-ai/schemastery resolvable
 ```

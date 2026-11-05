@@ -58,7 +58,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 - `pii-core`: 61 top-level tests, 60 pass, 1 platform skip.
 - `local-extract`: 49/49.
-- `dsh-privacy-gate`: 98/98, including the `llm/stream` egress guard.
+- `dsh-privacy-gate`: 100/100, including the `llm/stream` egress guard (stable `PRIVACY_EGRESS_BLOCKED` code, incremental message cache, PII-block policy).
 - `e2e`: 11/11.
 - Magpie middleware: **43 cases** in the in-tree `packages/privacy-gate/cases.json`; moejs measurement: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms (403 at cap), 200 turns / 350 KB = 38 ms (pass); legacy ShyPie
   harness has 58 checks that predate the six site-scoping regressions.
