@@ -117,8 +117,22 @@ function diff(draft, value) {
   return patch
 }
 
-/** The Settings section. */
+/** The Settings section: resolve the scope on render, then hand off to the stateful body. */
 function PrivacyGateSection(props) {
+  const scope = typeof props.resolveScope === 'function' ? props.resolveScope() : null
+  if (scope === null) {
+    return h(
+      'div',
+      { style: S.root },
+      h('p', { style: S.error }, 'The privacy-gate settings service is not available in this window.'),
+      h('p', { style: S.note }, 'Set the values in the profile patch and use the privacy_session tool until it is.'),
+    )
+  }
+  return h(PrivacyGateBody, { scope })
+}
+
+/** The stateful body; rendered only once a controller exists. */
+function PrivacyGateBody(props) {
   const scope = props.scope
   const snapshot = react.useSyncExternalStore(scope.subscribe, scope.getSnapshot)
   const [draft, setDraft] = react.useState(() => toDraft(snapshot.value))
@@ -252,41 +266,38 @@ function PrivacyGateSection(props) {
  * @param {object} ctx - browser plugin context.
  */
 function apply(ctx) {
-  // Child injection: the section appears once the settings services are live, and the package
-  // entry itself never reports pending.
-  ctx.inject(['settingsScope', 'connection', 'remote'], (scoped) => {
-    let controller
-    try {
-      controller = scoped.settingsScope.bind({ namespace: NAMESPACE })
-    } catch {
-      // The host does not expose this namespace (settings-not-exposed) — no section, no failure.
-      return
-    }
-    const injected = () => ({
-      scope: {
-        getSnapshot: () => controller.getSnapshot(),
-        subscribe: (listener) => controller.subscribe(listener),
-        load: () => controller.load(),
-        set: (field, value) => controller.set(field, value),
-      },
-    })
-    scoped.effect(
-      () =>
-        ctx.slots.inject('settings.section', () =>
-          ctx.slots.register(
-            {
-              name: 'settings.section',
-              id: NAMESPACE,
-              order: 70,
-              label: () => 'Privacy gate',
-              inject: injected,
-            },
-            PrivacyGateSection,
+  // Child injection: the section appears once the settings services are live, while the package
+  // entry itself — the thing the web-boot audit counts — never reports pending.
+  try {
+    ctx.inject(['settingsScope', 'connection', 'remote'], (scoped) => {
+      let controller
+      try {
+        controller = scoped.settingsScope.bind({ namespace: NAMESPACE })
+      } catch {
+        // The host does not expose this namespace (settings-not-exposed) — no section, no failure.
+        return
+      }
+      const injected = () => ({ resolveScope: () => controller })
+      scoped.effect(
+        () =>
+          ctx.slots.inject('settings.section', () =>
+            ctx.slots.register(
+              {
+                name: 'settings.section',
+                id: NAMESPACE,
+                order: 70,
+                label: () => 'Privacy gate',
+                inject: injected,
+              },
+              PrivacyGateSection,
+            ),
           ),
-        ),
-      'privacy-gate: settings section',
-    )
-  })
+        'privacy-gate: settings section',
+      )
+    })
+  } catch {
+    // A host whose client context has no `inject` helper must not fail boot over a missing page.
+  }
 }
 
 

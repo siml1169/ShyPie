@@ -79,19 +79,18 @@ test('the client half exports apply/inject and binds the privacy-gate namespace'
 })
 
 test('the section component renders without a live host and reports the missing exposure', async () => {
-  const { exports, registered, react } = await loadClient()
+  const { registered, react } = await loadClient()
   try {
     const section = registered.find((entry) => entry.slot === 'settings.section')
     const injected = section.options.inject()
-    // Simulate a host that did not expose the namespace: the component must render a message,
+    // A window where the settings services never arrived: the component must render a message,
     // not throw.
-    injected.scope.getSnapshot = () => ({ status: 'error', value: undefined, revision: undefined })
+    injected.resolveScope = () => null
     const tree = section.component({ ...injected })
     assert.equal(tree.type, 'div')
     const text = JSON.stringify(tree)
-    assert.match(text, /did not expose/)
+    assert.match(text, /not available/)
     assert.equal(typeof react.createElement, 'function')
-    assert.equal(typeof exports.apply, 'function')
   } finally {
     delete globalThis.window
   }
