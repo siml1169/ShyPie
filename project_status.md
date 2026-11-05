@@ -38,7 +38,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49 tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all 8 block reasons tested | Met on Windows; no cloud converter is ever called |
 | **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; Magpie middleware returns 403 for binary parts, blobs, disallowed models, and blanks content in `onProvider` when it cannot reject | Magpie 33 in-tree cases; live image 403; model-allowlist live 403 for DSH and Copilot; vendor-signature replays 200 after the exemption fix | Met; the bounded text scan and pre-uploaded Files-API references are documented residual limits |
 | **DSH + Magpie plugin combo** | DSH host bundle (`@shypie_privacy/dsh-privacy-gate`) plus Magpie gateway middleware (`@magpie-community/middleware-privacy-gate`) | DSH bundle installs into `headless` and `desktop` profiles; live two-turn DeepSeek and Copilot sessions; middleware loaded in a live Magpie gateway | Met in code; Magpie package is not yet published from its new home |
-| **A usable, maintained distribution** | three ShyPie npm packages published at `0.1.0`; Magpie middleware in-tree in magpie-community/plugins (PR #685); tag `v0.1.1` | `npm view` for the three packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); this repository's tag | Partial: Magpie community package and both marketplace listings are pending |
+| **A usable, maintained distribution** | ShyPie npm packages published (`dsh-privacy-gate` at `0.2.0`, others at `0.1.0`); Magpie middleware in-tree in magpie-community/plugins (PR #685); tag `v0.2.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); this repository's tags | Partial: Magpie community package and catalog merges are pending |
 | **Honest limits, not a false guarantee** | design §12, security review with resolution table, bounded-scan/summary wording, explicit "does not mask text" scope | [docs/design.md](docs/design.md), [docs/research/security-review.md](docs/research/security-review.md), Magpie registry summary | Met; see §5 below for what is still not true |
 
 ## 4. Component status
@@ -115,7 +115,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [ ] Magpie community package merged and published.
 - [ ] Both marketplace listings live.
 - [ ] Legacy npm package rejected/deprecated.
-- [ ] GitHub release from `v0.1.1`.
+- [x] GitHub release from `v0.2.0`.
 - [x] DSH bundle `0.2.0` (egress guard) published.
 - [ ] ShyPie legacy middleware source removed after the community package publishes.
 
