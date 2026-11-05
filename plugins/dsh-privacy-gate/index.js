@@ -159,6 +159,7 @@ export const LiveConfig = z.object({
   auditPath: z.string().default(''),
   egressAllowProviders: z.array(z.string()).default([]),
   egressAllowModels: z.array(z.string()).default([]),
+  allowAgentDisable: z.boolean().default(false),
   ocrEngine: z.string().default('local'),
   visionProvider: z.string().default(''),
   visionModel: z.string().default(''),

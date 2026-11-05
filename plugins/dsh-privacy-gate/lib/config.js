@@ -28,6 +28,7 @@ export const CONFIG_KEYS = Object.freeze([
   'egressMaxNodes',
   'scope',
   'sessionsPath',
+  'allowAgentDisable',
   'ocrEngine',
   'visionProvider',
   'visionModel',
@@ -55,6 +56,7 @@ export const DEFAULTS = Object.freeze({
   sessionsPath: '',
   // Extractor preference. 'local' never leaves the machine; 'vision' would opt into a model
   // call for images the local engines cannot read, and is configuration-only for now.
+  allowAgentDisable: false,
   ocrEngine: 'local',
   visionProvider: '',
   visionModel: '',
@@ -131,6 +133,7 @@ export function resolveConfig(raw = {}, base = {}) {
     egressMaxNodes: positiveInteger('egressMaxNodes', raw.egressMaxNodes ?? DEFAULTS.egressMaxNodes),
     scope: raw.scope ?? DEFAULTS.scope,
     sessionsPath: typeof (raw.sessionsPath ?? '') === 'string' ? (raw.sessionsPath ?? '') : fail('sessionsPath must be a string'),
+    allowAgentDisable: raw.allowAgentDisable ?? DEFAULTS.allowAgentDisable,
     ocrEngine: raw.ocrEngine ?? DEFAULTS.ocrEngine,
     visionProvider: typeof (raw.visionProvider ?? '') === 'string' ? (raw.visionProvider ?? '') : fail('visionProvider must be a string'),
     visionModel: typeof (raw.visionModel ?? '') === 'string' ? (raw.visionModel ?? '') : fail('visionModel must be a string'),
@@ -138,6 +141,7 @@ export function resolveConfig(raw = {}, base = {}) {
 
   if (resolved.scope !== 'session' && resolved.scope !== 'system') fail('scope must be "session" or "system"')
   if (!['local', 'vision', 'auto'].includes(resolved.ocrEngine)) fail('ocrEngine must be "local", "vision" or "auto"')
+  if (typeof resolved.allowAgentDisable !== 'boolean') fail('allowAgentDisable must be a boolean')
 
   if (typeof resolved.blockNonTextResults !== 'boolean') fail('blockNonTextResults must be a boolean')
   if (typeof resolved.audit.enabled !== 'boolean') fail('audit.enabled must be a boolean')

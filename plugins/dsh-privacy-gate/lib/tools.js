@@ -293,5 +293,62 @@ export function buildToolDefinitions(deps) {
         return { path: target, replaced: resolvable.length, kinds }
       },
     },
+    {
+      name: 'privacy_session',
+      description:
+        'Report or change whether the privacy gate protects the current session. `status` is always allowed; `enable` opts this session in; `disable` is refused unless the deployment allows an agent to turn the gate off (allowAgentDisable). The record holds the session id and a boolean, never content.',
+      parameters: objectSchema({
+        action: {
+          type: 'string',
+          required: true,
+          enum: ['status', 'enable', 'disable'],
+          description: 'status | enable | disable',
+        },
+      }),
+      output: {
+        schema: {
+          type: 'object',
+          properties: {
+            scope: { type: 'string' },
+            enabled: { type: 'boolean' },
+            explicit: { type: 'boolean' },
+            sessionId: { type: ['string', 'null'] },
+          },
+          required: ['scope', 'enabled', 'explicit', 'sessionId'],
+          additionalProperties: false,
+        },
+        render: (_args, value) => [
+          {
+            type: 'text',
+            text: `privacy-gate scope=${value.scope} enabled=${value.enabled} explicit=${value.explicit}`,
+          },
+        ],
+      },
+      async execute(args, exec) {
+        const parsed = parseArguments({ action: { type: 'string', required: true } }, args)
+        if (parsed.ok === false) throw new Error(`privacy-gate: ${parsed.error}`)
+        const action = parsed.value.action
+        if (!['status', 'enable', 'disable'].includes(action)) {
+          throw new Error('privacy-gate: action must be status, enable or disable')
+        }
+        const registry = deps.sessions
+        if (registry === undefined || registry === null) {
+          throw new Error('privacy-gate: session scope is unavailable in this deployment')
+        }
+        const sessionId = exec?.agent?.id
+        if (typeof sessionId !== 'string' || sessionId.length === 0) {
+          throw new Error('privacy-gate: this tool needs a session context; call it from a session, not from a bare host')
+        }
+        if (action === 'enable') registry.setEnabled(sessionId, true)
+        if (action === 'disable') {
+          if (configOf().allowAgentDisable !== true) {
+            throw new Error('privacy-gate: disabling the gate for a session is not permitted by this deployment (allowAgentDisable: false)')
+          }
+          registry.setEnabled(sessionId, false)
+        }
+        audit.record({ kind: `session-${action}`, length: 0, count: 0, path_hash: '' })
+        return registry.status(sessionId)
+      },
+    },
   ]
 }

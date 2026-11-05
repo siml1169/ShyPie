@@ -120,9 +120,15 @@ refused at write time, so the running owner keeps its last good value.
 | `visionProvider`, `visionModel` | the provider/model a future vision fallback would use; **no image is sent anywhere today** |
 
 Settings are read and written through the settings service (`api.settings.describe` /
-`settingsScope.set`), not by editing `settings.yaml` by hand. If the host exposes the namespace in
-the Plugins page, the schema drives the controls; a dedicated page in `Settings` is the next step and
-needs the client-plugin injection contract verified against a running renderer.
+`settingsScope.set`), not by editing `settings.yaml` by hand.
+
+**A third-party page cannot persist settings in DSH 0.2.1-rc.5.**
+`dsh-client-ui-settings-plugins` states it: *"Exposure is a Host allowlist, not a plugin
+declaration — a namespace absent from the api-proxy's allowlist answers `settings-not-exposed` even
+when its owner registered it, so a plugin distributed outside this repository cannot surface its own
+configuration here without a change in `packages/host/apiproxy`."* The registered namespace is the
+layer a future host allowlist — or a dedicated page, once the client injection contract is confirmed
+— can bind to. Today the reachable surfaces are the row config and `privacy_session`.
 
 ## Egress guard — fail closed before Magpie
 
@@ -217,10 +223,16 @@ privacy_extract { path, mode?: pdf|doc|auto, max_chars?, pages?, lang? }
 privacy_ocr     { path, max_chars?, pages?, lang? }
 privacy_scan    { text }
 privacy_rehydrate { text, artifact_path }   -> { path, replaced, kinds }
+privacy_session { action: status|enable|disable } -> { scope, enabled, explicit, sessionId }
 ```
 
-All four return masked text or throw. `privacy_rehydrate` never returns a value,
+The first four return masked text or throw. `privacy_rehydrate` never returns a value,
 only a path and counts (the interface contract round-trip rule).
+
+`privacy_session` is the per-session switch: `status` is always allowed, `enable` opts the current
+session in, and `disable` is refused unless the deployment sets `allowAgentDisable: true` — a
+prompt-injected instruction must not be able to turn the gate off by itself. It acts on
+`exec.agent.id`, the same `SessionId` the gates read, and records only an id and a boolean.
 
 ## Tests
 

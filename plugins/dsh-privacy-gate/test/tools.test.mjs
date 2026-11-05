@@ -25,9 +25,9 @@ function setup(overrides = {}) {
   return { tools, byName: Object.fromEntries(tools.map((tool) => [tool.name, tool])), written, calls, config }
 }
 
-test('the bundle registers exactly the four documented tools with raw schemas', () => {
+test('the bundle registers exactly the five documented tools with raw schemas', () => {
   const { tools } = setup()
-  assert.deepEqual(tools.map((tool) => tool.name), ['privacy_extract', 'privacy_ocr', 'privacy_scan', 'privacy_rehydrate'])
+  assert.deepEqual(tools.map((tool) => tool.name), ['privacy_extract', 'privacy_ocr', 'privacy_scan', 'privacy_rehydrate', 'privacy_session'])
   for (const tool of tools) {
     assert.equal(typeof tool.description, 'string')
     assert.equal(tool.parameters.type, 'object')
@@ -182,4 +182,53 @@ test('resolveArtifactPath keeps a relative name inside the directory', () => {
   assert.equal(resolveArtifactPath('C:/workflow/artifacts/c.txt', 'C:/workflow/artifacts').replace(/\\/g, '/'), 'C:/workflow/artifacts/c.txt')
   assert.throws(() => resolveArtifactPath('C:/Windows/x.txt', 'C:/workflow/artifacts'))
   assert.throws(() => resolveArtifactPath('../escape.txt', 'C:/workflow/artifacts'))
+})
+
+/** Build only the session tool with a recording registry. */
+function sessionTool(configOverrides = {}) {
+  const state = { enabled: false, explicit: false }
+  const sessions = {
+    status: () => ({ scope: 'session', enabled: state.enabled, explicit: state.explicit, sessionId: 's-1' }),
+    setEnabled: (_id, value) => { state.enabled = value; state.explicit = true },
+  }
+  const tools = buildToolDefinitions({
+    config: { ...makeGateDeps().config, ...configOverrides },
+    redactor: makeFakeRedactor(),
+    pii: makeFakePii(makeFakeRedactor()),
+    runExtract: async () => { throw new Error('not used') },
+    writeArtifact: () => {},
+    audit: { record: () => true },
+    hashPath: (p) => `hash:${String(p).length}`,
+    sessions,
+  })
+  const tool = tools.find((candidate) => candidate.name === 'privacy_session')
+  return { tool, state }
+}
+
+const exec = { agent: { id: 's-1' } }
+
+test('privacy_session reports and can enable the current session', async () => {
+  const { tool, state } = sessionTool()
+  const before = await tool.execute({ action: 'status' }, exec)
+  assert.equal(before.enabled, false)
+  assert.equal(before.sessionId, 's-1')
+
+  const after = await tool.execute({ action: 'enable' }, exec)
+  assert.equal(after.enabled, true)
+  assert.equal(state.explicit, true)
+})
+
+test('privacy_session refuses to disable the gate unless the deployment allows it', async () => {
+  const { tool } = sessionTool()
+  await assert.rejects(() => tool.execute({ action: 'disable' }, exec), /not permitted by this deployment/)
+
+  const allowed = sessionTool({ allowAgentDisable: true })
+  const status = await allowed.tool.execute({ action: 'disable' }, exec)
+  assert.equal(status.enabled, false)
+})
+
+test('privacy_session needs a session context and a known action', async () => {
+  const { tool } = sessionTool()
+  await assert.rejects(() => tool.execute({ action: 'status' }, {}), /needs a session context/)
+  await assert.rejects(() => tool.execute({ action: 'launch' }, exec), /action must be status, enable or disable/)
 })
