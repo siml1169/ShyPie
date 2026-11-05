@@ -40,27 +40,41 @@ gateway (Cursor, Copilot, Claude Code, scripts).
 
 ## Architecture
 
-```
-user text / attach ─► Gate 3  ingress redaction ─────────────┐
-                                                             ▼
-tool call ──────────► tool ─► Gate 1 tool-result redaction ─► session log (placeholders)
-(read/pwsh/MCP)                ▲                             │
-                               │                             ▼
-pdf / scan / doc ───► privacy_extract / privacy_ocr ──► redact ──► placeholders
-                        │ (local pdftotext / OS OCR)   │
-                        └─ blocked ───────────────────► tool error (no data)
-                                                             │
-model output (placeholders) ─► privacy_rehydrate ─► local artifact
-                                                             │
-                                              LLM request (placeholders only)
-                                                             ▼
-                     ┌──────────────── Magpie gateway ─────────────────┐
-                     │ text masking (built-in, local model)           │
-                     │ privacy-gate middleware: rejects images, files, │
-                     │ audio, encoded blobs, non-allowlisted models    │
-                     └─────────────────────────────────────────────────┘
-                                                             ▼
-                                                       LLM provider
+```mermaid
+flowchart TB
+  subgraph DSH[DeepSeek Harness]
+    direction TB
+    U["user text / attachments"] --> G3["Gate 3<br/>user ingress redaction"]
+    T["tool call<br/>read / pwsh / MCP"] --> TOOL["tool execution"]
+    TOOL --> G1["Gate 1<br/>tool-result text redaction"]
+    PDF["PDF / scan / document"] --> EXT["privacy_extract / privacy_ocr<br/>local CLI: pdftotext / OS OCR"]
+    EXT --> RED["local redaction"]
+    RED --> PH["placeholders"]
+    EXT -.->|blocked| ERR["tool error<br/>no data"]
+    G3 --> LOG["session log<br/>placeholders only"]
+    G1 --> LOG
+    PH --> LOG
+    LOG --> REQ["LLM request<br/>placeholders only"]
+    REQ --> EG{"DSH llm/stream<br/>egress guard"}
+    EG -->|reject| BLOCK["turn fails<br/>PRIVACY_EGRESS_BLOCKED"]
+  end
+  subgraph MAGPIE[Magpie gateway controls]
+    direction TB
+    MW["privacy-gate middleware<br/>rejects images / files / audio,<br/>encoded blobs, disallowed models"]
+    MASK["built-in Privacy text masking"]
+    MW --> MASK
+  end
+  EG -->|pass| GW["Magpie gateway"]
+  GW --> MW
+  MASK --> LLM["LLM provider"]
+  OTHER["other agents<br/>Cursor / Copilot / Claude Code / scripts"] -.-> GW
+  LLM --> OUT["model output<br/>placeholders"]
+  OUT --> RH["privacy_rehydrate"]
+  RH --> ART["local artifact"]
+  classDef gate fill:#fff3cd,stroke:#b8860b,color:#000
+  classDef reject fill:#f8d7da,stroke:#b02a37,color:#000
+  class EG gate
+  class BLOCK reject
 ```
 
 ## What it protects
