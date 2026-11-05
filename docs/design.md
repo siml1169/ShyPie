@@ -20,7 +20,7 @@ The workflow is a **combo of two plugins plus one shared core**:
 | `@shypie_privacy/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
 | `@shypie_privacy/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
 | `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** redaction, local extraction tools, `read_image`/binary guards, rehydrate-into-artifact |
-| `@shypie_privacy/magpie-privacy-gate` | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist |
+| `@magpie-community/middleware-privacy-gate` (in-tree; legacy `@shypie_privacy/magpie-privacy-gate` no longer referenced) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist |
 
 The split is forced by one hard fact and covers two different gaps:
 
@@ -296,7 +296,7 @@ and writes real values to a local artifact, returning only `{path, replaced, kin
 fill a form or write a file without ever seeing the value. If the agent reads that artifact back,
 Gate 1 re-redacts it — the design is idempotent by construction.
 
-### 6.4 `@shypie_privacy/magpie-privacy-gate` — egress firewall
+### 6.4 `@magpie-community/middleware-privacy-gate` — egress firewall
 
 A Magpie gateway middleware plugin (`*.middleware.js`), plain JavaScript, no imports outside the
 plugin, no I/O — it runs in moejs inside the gateway process and is loaded on file change.

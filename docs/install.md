@@ -40,10 +40,11 @@ The option names, defaults and their meaning are documented in
 [`plugins/magpie-privacy-gate/README.md`](../plugins/magpie-privacy-gate/README.md). A copy of the
 example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
-The published package is on npm: `magpie plugin add @shypie_privacy/magpie-privacy-gate` installs
-`0.1.0`. The `0.1.1` fix is staged for npm's 2FA approval; until it is approved, keep the folder
-path above to get it. A folder is loaded where it is, so neither form copies anything into the Magpie
-config directory ([docs/publish.md](publish.md)).
+The middleware now lives in-tree in **magpie-community/plugins** ([`packages/privacy-gate`](https://github.com/magpie-community/plugins/pull/685));
+its package is `@magpie-community/middleware-privacy-gate`. The legacy
+`@shypie_privacy/magpie-privacy-gate` package is no longer referenced and is being retired. Until the community package publishes,
+keep the folder path above. A folder is loaded where it is, so neither form copies anything into the
+Magpie config directory ([docs/publish.md](publish.md)).
 
 Then turn text masking on — **Settings → Privacy**, or `~/.config/magpie/settings.json`:
 

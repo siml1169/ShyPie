@@ -10,14 +10,15 @@ This repository is a reference implementation of a two-plugin combo for
 | Component | npm package | Role |
 |---|---|---|
 | [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
-| [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate) | `@shypie_privacy/magpie-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
+| [Magpie middleware (in-tree)](https://github.com/magpie-community/plugins/pull/685) | `@magpie-community/middleware-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
 | [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
 | [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
 
-All four packages are published on npm at `0.1.0`; the Magpie middleware's `0.1.1` fix is staged for
-npm's 2FA approval. The Magpie registry entry is submitted as
-[PR #685](https://github.com/magpie-community/plugins/pull/685); the DSH catalog entry is prepared and
-can be opened once the repository is one day old. [docs/publish.md](docs/publish.md) has the exact state.
+The DSH bundle, `pii-core` and `local-extract` are published on npm at `0.1.0`. The Magpie
+middleware now lives **in-tree** in [magpie-community/plugins](https://github.com/magpie-community/plugins/pull/685)
+(`@magpie-community/middleware-privacy-gate`); the legacy `@shypie_privacy/magpie-privacy-gate`
+package is no longer referenced and is being retired. The registry entry is [PR #685](https://github.com/magpie-community/plugins/pull/685);
+the DSH catalog entry is ready to submit. [docs/publish.md](docs/publish.md) has the exact state.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
 documented precisely in [docs/design.md](docs/design.md) and summarised below.
@@ -95,20 +96,21 @@ model output (placeholders) ─► privacy_rehydrate ─► local artifact
 
 ## Quick start
 
-Install from npm (published `0.1.0`; until the `0.1.1` Magpie fix is approved, the folder path loads
-the fixed middleware from this checkout):
+The DSH bundle is on npm. The Magpie middleware is being moved in-tree to
+[magpie-community/plugins](https://github.com/magpie-community/plugins/pull/685); until its package
+publishes, load the folder from this checkout. The legacy `@shypie_privacy/magpie-privacy-gate`
+package is retired.
 
-1. Install the Magpie middleware — `magpie plugin add @shypie_privacy/magpie-privacy-gate`, or the
-   folder [`plugins/magpie-privacy-gate`](plugins/magpie-privacy-gate/README.md) for `0.1.1`.
+1. Install the Magpie middleware — `magpie plugin add "$repo/plugins/magpie-privacy-gate"`, or
+   `magpie plugin add @magpie-community/middleware-privacy-gate` once the in-tree package publishes.
 2. Install the DSH bundle — `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`, or
    through the plugin manager as in [`docs/install.md`](docs/install.md).
 3. In Magpie, enable masking under **Settings → Privacy** (text half of the combo).
 4. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
 
-Both plugins are reversible; no profile file is edited by hand. The published names are
-`magpie plugin add @shypie_privacy/magpie-privacy-gate` and
-`dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`; [docs/publish.md](docs/publish.md)
-covers the release state and the two marketplace listings.
+Both plugins are reversible; no profile file is edited by hand. The install names are
+`@magpie-community/middleware-privacy-gate` and `@shypie_privacy/dsh-privacy-gate`;
+[docs/publish.md](docs/publish.md) covers the release state and the two marketplace listings.
 
 ## Verify
 
@@ -163,10 +165,11 @@ LICENSE                   MIT
 
 ## Status
 
-Reference implementation, tested on one Windows machine. **Published:** all four npm packages at
-`0.1.0`; the Magpie middleware `0.1.1` is staged for 2FA approval. Tag `v0.1.1` exists; there is no
-GitHub release yet. The Magpie registry entry is [PR #685](https://github.com/magpie-community/plugins/pull/685);
-the DSH catalog entry is prepared but not submitted (the repository must be one day old first).
+Reference implementation, tested on one Windows machine. **Published:** `pii-core`, `local-extract`
+and the DSH bundle at `0.1.0`. The Magpie middleware moved **in-tree** to magpie-community/plugins
+([PR #685](https://github.com/magpie-community/plugins/pull/685)); the legacy
+`@shypie_privacy/magpie-privacy-gate` npm package is no longer referenced and is being retired. Tag
+`v0.1.1` exists; there is no GitHub release yet. The DSH catalog entry is ready to submit.
 The **live wiring** was exercised manually on 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle
 installed from npm, two-turn DeepSeek and Copilot `gpt-6.1-sol` sessions through a live Magpie
 gateway, and a temporary model-allowlist block that the gate rejected. OpenAI Responses

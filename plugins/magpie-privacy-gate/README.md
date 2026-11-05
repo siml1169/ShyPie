@@ -1,5 +1,10 @@
 # magpie-privacy-gate — structural egress firewall for magpie's gateway
 
+> **Moved in-tree.** The canonical source is now
+> [`packages/privacy-gate`](https://github.com/magpie-community/plugins/pull/685) in
+> magpie-community/plugins; its package is `@magpie-community/middleware-privacy-gate`. This
+> ShyPie copy is the legacy source; `@shypie_privacy/magpie-privacy-gate` is no longer referenced and is being retired.
+
 A magpie **gateway middleware** plugin. It closes the one gap magpie's own masking says it cannot
 close:
 
@@ -45,8 +50,8 @@ magpie plugin add ./plugins/magpie-privacy-gate
 magpie plugin                                    # the plugin is listed; it is middleware only (no Bun host)
 ```
 
-From npm the same plugin is `magpie plugin add @shypie_privacy/magpie-privacy-gate` (0.1.0; the
-`0.1.1` fix is staged for npm's 2FA approval); the package
+From the community package (once published) the same plugin is
+`magpie plugin add @magpie-community/middleware-privacy-gate`; the package
 name is what the registry entry in
 [`marketplace/magpie/registry-entry.json`](../../marketplace/magpie/registry-entry.json) lists.
 
@@ -82,7 +87,7 @@ magpie plugin options magpie-privacy-gate off     # clears them again
 
 The name can be the package's, its spec, or its short name
 (<https://usemagpie.ai/docs/plugins#middleware-options>). The package name is
-`@shypie_privacy/magpie-privacy-gate`; if `magpie-plugin` reports an unknown name, run `magpie plugin` and
+`@magpie-community/middleware-privacy-gate` (or the legacy `@shypie_privacy/magpie-privacy-gate` until its retirement); if `magpie-plugin` reports an unknown name, run `magpie plugin` and
 use the short name it prints (`magpie-privacy-gate`, or `privacy-gate` on magpie versions that strip
 the `magpie-` prefix — that spelling is **UNVERIFIED**, see [the hooks evidence](../../docs/research/magpie-hooks.md) §7).
 

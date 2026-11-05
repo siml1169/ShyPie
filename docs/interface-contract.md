@@ -59,7 +59,7 @@ packages/
   local-extract/          @shypie_privacy/local-extract
 plugins/
   dsh-privacy-gate/       @shypie_privacy/dsh-privacy-gate
-  magpie-privacy-gate/    @shypie_privacy/magpie-privacy-gate
+  privacy-gate/           @magpie-community/middleware-privacy-gate
 config/                   example Magpie middleware options
 tests/                    end-to-end suite and the one-command runner
 ```
