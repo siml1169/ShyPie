@@ -1,8 +1,8 @@
 {
   "name": "@shypie_privacy/dsh-privacy-gate",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
-  "description": "Ingest-time PII masking and local document extraction for DeepSeek Harness",
+  "description": "Ingest-time PII masking, local document extraction and a fail-closed egress guard for DeepSeek Harness",
   "keywords": [
     "deepseek-harness",
     "dsh",

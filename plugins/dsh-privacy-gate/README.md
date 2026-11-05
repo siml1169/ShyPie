@@ -4,6 +4,8 @@ A DeepSeek Harness **Host bundle** that keeps PII on this machine. It masks at
 **ingestion**, because DSH's outbound request is a deep-frozen fold of the session
 log and cannot be rewritten on the way out — see
 [`../../docs/research/dsh-hooks.md`](../../docs/research/dsh-hooks.md) §4.
+It also asserts the final request at **`llm/stream`**, before the provider adapter (and Magpie) can
+see it: anything un-maskable or uninspectable fails the turn.
 
 ## What it does
 
@@ -15,6 +17,7 @@ log and cannot be rewritten on the way out — see
 | Guards | `ctx.tools.guard()` | Denies `read_image` outright, and denies `read` of binary/document extensions outside `allowPaths`. |
 | Round trip | `privacy_rehydrate` | Resolves placeholders **inside the tool**, writes the plaintext to a local artifact, and returns only `{ path, replaced, kinds }`. |
 | Extra (defensive) | `tools/ptc-dispatch-log` | Masks the durable log copy of `run_code` sub-dispatches. |
+| 4 — egress | `llm/stream` (waterfall, prepended) | Inspects the exact final request before adapter dispatch. Rejects image/file/audio/video blocks, unknown block types, surviving PII or BLOB, provider/model outside the allowlists, and over-budget requests. Throws before `next()`, so no HTTP request reaches Magpie. |
 
 ## Files
 
@@ -24,6 +27,7 @@ lib/config.js        pure config resolution (frozen, unknown keys fail)
 lib/paths.js         pure path predicates used by the guard
 lib/redact.js        pure content/message/value masking over the pii-core API
 lib/gate.js          the gates as pure decision shapers + installGates()
+lib/egress.js        final llm/stream egress guard (fail-closed before the adapter)
 lib/tools.js         the four ToolDefinitions (raw register() form)
 lib/extract.js       local-extract CLI adapter (spawn, no shell, no network)
 lib/keyfile.js       placeholder HMAC key (mode 0600)
@@ -67,9 +71,35 @@ blockNonTextResults: true     # block tool results containing image/file blocks
 artifactDir: ''               # defaults to ~/.dsh/privacy/artifacts (privacy_rehydrate target)
 toolTimeoutMs: 120000
 maxExtractChars: 200000
+egressAllowProviders: []     # [] = every provider; exact, * or prefix/* patterns
+egressAllowModels: []        # [] = every model
+egressMaxChars: 2000000      # throw instead of passing an uninspectable request
+egressMaxNodes: 200000
 ```
 
 There is no `failClosed` switch: the gate always fails closed.
+
+## Egress guard — fail closed before Magpie
+
+DSH's `llm/stream` waterfall wraps adapter dispatch (`dsh-llm` `streamWithRegistration`). This
+bundle registers a **prepended, global** listener that inspects the final
+`{provider, model, messages, tools}` request and **throws before `next()`**. That happens in the DSH
+process, before any provider HTTP call, so Magpie never sees a blocked request and Magpie's 250 ms
+middleware timeout cannot drop the verdict.
+
+The guard rejects:
+
+- `image`, `file`, `audio` or `video` content blocks;
+- unknown content-block types;
+- any surviving `pii-core` hit (PII or `BLOB`) in text, reasoning, tool-call arguments or
+  tool-result content;
+- a provider/model outside `egressAllowProviders` / `egressAllowModels`;
+- a request over `egressMaxChars` or `egressMaxNodes` (fail closed, never degrade).
+
+It does not mask or rewrite: the request is frozen, so rejection is the only action. Tool
+declarations (`request.tools`, `request.toolHistory`) are schema, not conversation content, and are
+skipped. The existing ingestion gates still run first; this is the final assertion that they left
+nothing un-maskable.
 
 `failClosed` is not a setting — failing closed is the only mode: if `vendor/pii-core.js` cannot load,
 the key file is unusable, a redactor throws, or a document path is outside `allowPaths`, the gates

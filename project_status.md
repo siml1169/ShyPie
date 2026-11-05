@@ -47,7 +47,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 |---|---|---|---|
 | `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
-| `@shypie_privacy/dsh-privacy-gate` | `0.1.0`, `plugins/dsh-privacy-gate` | npm published | ✅ live-tested in DSH 0.2.1-rc.5 |
+| `@shypie_privacy/dsh-privacy-gate` | `0.2.0` source, `plugins/dsh-privacy-gate` | npm `0.1.0` published; `0.2.0` pending publish | ✅ egress guard live-tested in DSH 0.2.1-rc.5 |
 | `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 41 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH entry ready | 🟡 |
@@ -58,7 +58,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 - `pii-core`: 61 top-level tests, 60 pass, 1 platform skip.
 - `local-extract`: 49/49.
-- `dsh-privacy-gate`: 86/86.
+- `dsh-privacy-gate`: 98/98, including the `llm/stream` egress guard.
 - `e2e`: 11/11.
 - Magpie middleware: **41 cases** in the in-tree `packages/privacy-gate/cases.json`; legacy ShyPie
   harness has 58 checks that predate the six site-scoping regressions.
@@ -82,6 +82,9 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
   out — but a slower host or a body under a raised budget can still fail open.
 - A DSH headless session patched to `copilot/gpt-6.1-sol` resumed a second turn through the same
   gateway.
+- DSH egress guard live: a provider-allowlist denial made the turn fail with
+  `privacy-gate: egress blocked (PROVIDER)` and Magpie received no request; a normal turn completed
+  with `EGRESS-OK` through the same profile.
 - Not exercised: the DSH GUI session, real streaming paths against a real upstream, and CI live tests.
 
 ## 6. Open items / blockers

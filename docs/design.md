@@ -253,7 +253,7 @@ engine exists, the tool returns a blocked result and the agent has nothing to se
 ### 6.3 `@shypie_privacy/dsh-privacy-gate` — ingestion gate
 
 A DSH bundle (host plugin; installs through `plugin_manager` `install_bundle`, never by hand-editing
-the profile). Three gates and two tool families:
+the profile). Four gates and two tool families:
 
 **Gate 1 — tool-result ingress.** A `tools/post-execute` waterfall listener redacts every text block of
 every tool result, whatever produced it (`read`, `pwsh`, `grep`, `glob`, MCP tools, subagent tools).
@@ -280,6 +280,12 @@ from the source rather than assumed:
   client-side redactor at submit time.
 - `read_image` can be denied or blocked but not converted: its result carries an image block, so the
   only privacy-safe action is refusal.
+
+**Gate 4 — final egress.** A prepended, global `llm/stream` listener inspects the exact final
+request before adapter dispatch and throws if it contains image/file/audio/video blocks, unknown
+block types, surviving PII or BLOB, a disallowed provider/model, or an over-budget body. It runs in
+the DSH process before any provider HTTP call, so Magpie never sees a blocked request and Magpie's
+250 ms middleware timeout cannot drop the verdict. See `plugins/dsh-privacy-gate/lib/egress.js`.
 
 The exact seams and their evidence are in `research/dsh-hooks.md`.
 
@@ -464,7 +470,7 @@ node tests/run-all.mjs                   # every suite, one summary
 | Detectors: positives, contract negatives, checksum failures, determinism, idempotence, no-plaintext output | `packages/pii-core/test/` | **61 tests, 60 pass, 0 fail, 1 platform skip** (POSIX mode bit on Windows); SHA/HMAC cross-checked against `node:crypto`; ISO 7064 cross-checked on public example `DE136695976` |
 | Redaction cost | `packages/pii-core/test/perf.test.js`, `test/hardening.test.js` | 50,125-char synthetic doc, 2,133 hits → **11.5 ms best / 12.3 ms median** warm (budget 50 ms); clean 50k doc 2.5 ms; adversarial 300k-digit run **40 ms** (was 380 ms before the card-detector fast path), 1M digits 110 ms |
 | PDF text extraction, Office extraction, OCR, every reachable block reason | `packages/local-extract/test/` | **49/49 pass**; text layer 93 chars; scan → `winrt-ocr`, ~0.65–0.78 s for 2 pages, 2.9–3.3 s full CLI; all 8 block reasons measured |
-| DSH gate: redacts results, `next()` unchanged, BLOB block, guards, fail-closed, 4 tools, real vendored core | `plugins/dsh-privacy-gate/test/` | **86/86 pass**; `node --check` clean on 22 files; activation check → 3 listeners, 1 guard, 4 tools registered |
+| DSH gate: redacts results, `next()` unchanged, BLOB block, guards, fail-closed egress guard, 4 tools, real vendored core | `plugins/dsh-privacy-gate/test/` | **98/98 pass**; `node --check` clean on 23 files; activation check → 4 listeners, 1 guard, 4 tools registered |
 | DSH Gate 3: model-visible user text masked, attachment steps rejected, raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; live DSH 0.2.1-rc.5 headless session exercised manually 2026-11-03 (GUI profile not exercised) |
 | Magpie middleware: image/file/audio rejection, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `plugins/magpie-privacy-gate/test/harness.mjs` | **58/58 pass** in `node:vm` with only `console`; 15 forbidden-token checks (`fetch`/`require`/timers/`process`/`Buffer`/`module` all absent) |
 | End-to-end: synthetic invoice → local text → placeholders → request body has no plaintext → gateway allow/reject → reply restores | `tests/e2e/` | **11/11 pass**, incl. the blocked-scan path and the OS-OCR path |

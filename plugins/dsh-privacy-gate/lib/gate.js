@@ -17,6 +17,7 @@
  */
 import { redactBlocks, redactMessages, redactStringTree } from './redact.js'
 import { isBinaryDocPath, isPathAllowed, displayName } from './paths.js'
+import { createEgressGuard } from './egress.js'
 
 /** Tool whose result content is an image this gate cannot mask. */
 export const READ_IMAGE_TOOL = 'read_image'
@@ -194,6 +195,14 @@ export function installGates(deps) {
   disposers.push(ctx.on('tools/ptc-dispatch-log', async (dispatch, next) => {
     const blocks = await next()
     return shapePtcDispatchLog(deps, blocks)
+  }))
+
+  // Final fail-closed boundary: inspect the exact request before the provider
+  // adapter (and Magpie) can see it. Prepended so no earlier listener can call
+  // next() first; throwing here is the rejection.
+  disposers.push(ctx.on('llm/stream', createEgressGuard(deps), {
+    prepend: true,
+    global: true,
   }))
 
   disposers.push(ctx.tools.guard((exec) => guardDecision(exec, deps.config)))

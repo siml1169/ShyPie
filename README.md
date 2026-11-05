@@ -124,7 +124,7 @@ Measured on the reference machine (Windows 11, Node 24, no network):
 |---|---|
 | `pii-core` | 61 tests, 60 pass (1 platform skip); 50,125-char doc with 2,133 hits redacts in 11.5 ms; 300k-digit run 40 ms |
 | `local-extract` | 49/49; text PDF, Office, local OCR, and all documented block reasons |
-| `dsh-privacy-gate` | 86/86; activation check registers 3 listeners, 1 guard, 4 tools |
+| `dsh-privacy-gate` | 98/98; activation check registers 4 listeners, 1 guard, 4 tools |
 | `magpie-privacy-gate` | 58/58 in a `node:vm` sandbox with only `console` (proves the moejs constraint) |
 | `e2e` | 11/11 — synthetic invoice → local text → placeholders → gateway → mock vendor, with zero plaintext on the wire |
 

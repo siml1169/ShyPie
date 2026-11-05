@@ -8,7 +8,7 @@ Current state and repeatable checklist for the ShyPie packages and the two plugi
 |---|---|---|
 | PII core | `@shypie_privacy/pii-core@0.1.0` — published | library only |
 | Local extractor | `@shypie_privacy/local-extract@0.1.0` — published | library only |
-| DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.1.0` — published | awesome-dsh-plugin → dsh-market: entry ready to submit |
+| DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.1.0` — published; `0.2.0` source pending publish | awesome-dsh-plugin → dsh-market: entry ready to submit |
 | Magpie middleware | `@magpie-community/middleware-privacy-gate` — **in-tree** in magpie-community/plugins, first publish after merge | magpie-community registry: [PR #685](https://github.com/magpie-community/plugins/pull/685) open |
 
 The legacy `@shypie_privacy/magpie-privacy-gate@0.1.0` package is no longer referenced and is being

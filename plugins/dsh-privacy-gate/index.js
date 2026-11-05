@@ -78,6 +78,10 @@ export const Config = z.object({
   artifactDir: z.string().default(''),
   toolTimeoutMs: z.number().step(1).min(1).default(120_000),
   maxExtractChars: z.number().step(1).min(1).default(200_000),
+  egressAllowProviders: z.array(z.string()).default([]),
+  egressAllowModels: z.array(z.string()).default([]),
+  egressMaxChars: z.number().step(1).min(1).default(2_000_000),
+  egressMaxNodes: z.number().step(1).min(1).default(200_000),
 })
 
 /**

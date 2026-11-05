@@ -22,6 +22,10 @@ export const CONFIG_KEYS = Object.freeze([
   'artifactDir',
   'toolTimeoutMs',
   'maxExtractChars',
+  'egressAllowProviders',
+  'egressAllowModels',
+  'egressMaxChars',
+  'egressMaxNodes',
 ])
 
 /** Defaults for a deployment that configures nothing. */
@@ -36,6 +40,10 @@ export const DEFAULTS = Object.freeze({
   artifactDir: '',
   toolTimeoutMs: 120_000,
   maxExtractChars: 200_000,
+  egressAllowProviders: [],
+  egressAllowModels: [],
+  egressMaxChars: 2_000_000,
+  egressMaxNodes: 200_000,
 })
 
 function fail(message) {
@@ -103,6 +111,10 @@ export function resolveConfig(raw = {}, base = {}) {
     artifactDir: typeof (raw.artifactDir ?? '') === 'string' ? (raw.artifactDir ?? '') : fail('artifactDir must be a string'),
     toolTimeoutMs: positiveInteger('toolTimeoutMs', raw.toolTimeoutMs ?? DEFAULTS.toolTimeoutMs),
     maxExtractChars: positiveInteger('maxExtractChars', raw.maxExtractChars ?? DEFAULTS.maxExtractChars),
+    egressAllowProviders: stringList('egressAllowProviders', raw.egressAllowProviders ?? DEFAULTS.egressAllowProviders),
+    egressAllowModels: stringList('egressAllowModels', raw.egressAllowModels ?? DEFAULTS.egressAllowModels),
+    egressMaxChars: positiveInteger('egressMaxChars', raw.egressMaxChars ?? DEFAULTS.egressMaxChars),
+    egressMaxNodes: positiveInteger('egressMaxNodes', raw.egressMaxNodes ?? DEFAULTS.egressMaxNodes),
   }
 
   if (typeof resolved.blockNonTextResults !== 'boolean') fail('blockNonTextResults must be a boolean')

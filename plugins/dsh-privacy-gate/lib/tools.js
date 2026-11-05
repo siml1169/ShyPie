@@ -47,45 +47,49 @@ const SUMMARY_ITEM_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    kind: { type: 'string', required: true },
-    count: { type: 'integer', required: true },
-    length: { type: 'integer', required: true },
+    kind: { type: 'string' },
+    count: { type: 'integer' },
+    length: { type: 'integer' },
   },
+  required: ['kind', 'count', 'length'],
 }
 
 const EXTRACTED_OUTPUT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    mode: { type: 'string', required: true },
-    engine: { type: 'string', required: true },
-    text: { type: 'string', required: true },
-    chars: { type: 'integer', required: true },
-    pages: { type: 'integer', required: true },
-    warnings: { type: 'array', required: true, items: { type: 'string' } },
-    redacted: { type: 'boolean', required: true },
-    tokens: { type: 'array', required: true, items: SUMMARY_ITEM_SCHEMA },
+    mode: { type: 'string' },
+    engine: { type: 'string' },
+    text: { type: 'string' },
+    chars: { type: 'integer' },
+    pages: { type: 'integer' },
+    warnings: { type: 'array', items: { type: 'string' } },
+    redacted: { type: 'boolean' },
+    tokens: { type: 'array', items: SUMMARY_ITEM_SCHEMA },
   },
+  required: ['mode', 'engine', 'text', 'chars', 'pages', 'warnings', 'redacted', 'tokens'],
 }
 
 const SCAN_OUTPUT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    text: { type: 'string', required: true },
-    redacted: { type: 'boolean', required: true },
-    hits: { type: 'array', required: true, items: SUMMARY_ITEM_SCHEMA },
+    text: { type: 'string' },
+    redacted: { type: 'boolean' },
+    hits: { type: 'array', items: SUMMARY_ITEM_SCHEMA },
   },
+  required: ['text', 'redacted', 'hits'],
 }
 
 const REHYDRATE_OUTPUT_SCHEMA = {
   type: 'object',
   additionalProperties: false,
   properties: {
-    path: { type: 'string', required: true },
-    replaced: { type: 'integer', required: true },
-    kinds: { type: 'array', required: true, items: { type: 'string' } },
+    path: { type: 'string' },
+    replaced: { type: 'integer' },
+    kinds: { type: 'array', items: { type: 'string' } },
   },
+  required: ['path', 'replaced', 'kinds'],
 }
 
 /** Extractor parameter spec (`privacy_extract`). */
