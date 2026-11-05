@@ -8,7 +8,7 @@ Current state and repeatable checklist for the ShyPie packages and the two plugi
 |---|---|---|
 | PII core | `@shypie_privacy/pii-core@0.1.0` — published | library only |
 | Local extractor | `@shypie_privacy/local-extract@0.1.0` — published | library only |
-| DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.1.0` — published; `0.2.0` source pending publish | awesome-dsh-plugin → dsh-market: entry ready to submit |
+| DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.2.0` — published | awesome-dsh-plugin → dsh-market: entry ready to submit |
 | Magpie middleware | `@magpie-community/middleware-privacy-gate` — **in-tree** in magpie-community/plugins, first publish after merge | magpie-community registry: [PR #685](https://github.com/magpie-community/plugins/pull/685) open |
 
 The legacy `@shypie_privacy/magpie-privacy-gate@0.1.0` package is no longer referenced and is being
@@ -110,14 +110,14 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 
 ## 4. Checklist
 
-- [x] `pii-core`, `local-extract` and the DSH bundle published at `0.1.0`.
+- [x] `pii-core` and `local-extract` published at `0.1.0`; DSH bundle at `0.2.0`.
 - [x] DSH bundle installs into a profile and runs a live session.
 - [x] Magpie middleware source, `cases.json` and test are in-tree (PR #685).
 - [x] Local checks: `bun test packages/privacy-gate` (43/43) and `bun scripts/check.mjs`.
 - [ ] Magpie registry PR merged and community package published.
 - [ ] DSH catalog entry submitted and merged.
 - [ ] Legacy `@shypie_privacy/magpie-privacy-gate` stage rejected and package deprecated.
-- [ ] DSH bundle `0.2.0` (egress guard) published.
+- [x] DSH bundle `0.2.0` (egress guard) published.
 - [ ] GitHub release created from tag `v0.1.1`.
 
 ## 5. Version strategy

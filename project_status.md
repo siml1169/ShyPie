@@ -47,7 +47,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 |---|---|---|---|
 | `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
-| `@shypie_privacy/dsh-privacy-gate` | `0.2.0` source, `plugins/dsh-privacy-gate` | npm `0.1.0` published; `0.2.0` pending publish | ✅ egress guard live-tested in DSH 0.2.1-rc.5 |
+| `@shypie_privacy/dsh-privacy-gate` | `0.2.0`, `plugins/dsh-privacy-gate` | npm `0.2.0` published | ✅ egress guard, stable error code and incremental cache live-tested in DSH 0.2.1-rc.5 |
 | `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 43 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH entry ready | 🟡 |
@@ -117,7 +117,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [ ] Both marketplace listings live.
 - [ ] Legacy npm package rejected/deprecated.
 - [ ] GitHub release from `v0.1.1`.
-- [ ] DSH bundle `0.2.0` (egress guard) published.
+- [x] DSH bundle `0.2.0` (egress guard) published.
 - [ ] ShyPie legacy middleware source removed after the community package publishes.
 
 ## 8. Sources of truth
