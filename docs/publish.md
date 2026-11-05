@@ -15,8 +15,8 @@ The legacy `@shypie_privacy/magpie-privacy-gate@0.1.0` package is no longer refe
 retired. Its staged `0.1.1` (`a9792716-3890-46a2-ae6f-c92e0fcf3aae`) will be rejected as part of the
 cleanup; the published version will be deprecated with a pointer to the community package.
 
-- Tag `v0.1.1` is pushed; there is no GitHub release yet.
-- The DSH catalog entry can be submitted now (the repository is more than one day old).
+- Tag `v0.2.0` is pushed and its GitHub release is created; `v0.1.1` remains as the previous tag.
+- The DSH catalog entry is submitted as awesome-dsh-plugin PR #12308.
 
 ## 1. ShyPie npm releases
 
@@ -47,8 +47,7 @@ npm view @shypie_privacy/dsh-privacy-gate version dsh.bundle.patch
 git tag -a v<version> -m "ShyPie <version>" && git push origin v<version>
 ```
 
-The current tag is `v0.1.1`. A tag is not a GitHub release; create the release from the tag when the
-release notes are ready.
+The current release is `v0.2.0` (GitHub release + npm `0.2.0`); `v0.1.1` is the previous tag.
 
 ## 2. Magpie middleware (in-tree)
 
@@ -119,7 +118,8 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [ ] DSH catalog entry merged.
 - [ ] Legacy `@shypie_privacy/magpie-privacy-gate` stage rejected and package deprecated.
 - [x] DSH bundle `0.2.0` (egress guard) published.
-- [ ] GitHub release created from tag `v0.1.1`.
+- [x] GitHub release created from tag `v0.2.0`.
+- [x] Previous release created from tag `v0.1.1`.
 
 ## 5. Version strategy
 
