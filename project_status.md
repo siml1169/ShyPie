@@ -65,10 +65,19 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 `node tests/run-all.mjs` covers the ShyPie suites.
 
-### Live (reference machine, 2026-11-03/04)
+### Live (reference machine, 2026-11-03/05)
 
 - DSH 0.2.1-rc.5 headless with the bundle installed from npm; a two-turn DeepSeek session through a
   live Magpie gateway.
+- **2026-11-05, new workspace session (`session-a430510a`):** DSH read a synthetic fixture through
+  the `read` tool; the persisted tool result and `session.v4` events contain placeholders for email,
+  IBAN, phone and card and **no raw values**. The free-text name `Alex Example` remained, matching
+  the documented PERSON/free-text residual. Magpie recorded a 200 for `deepseek-flash`.
+- **2026-11-05, fail-closed session (`session-422c5754`):** with
+  `egressAllowProviders: ["definitely-not-magpie"]`, the new turn failed with
+  `code: PRIVACY_EGRESS_BLOCKED`; Magpie's usage row did not change.
+- **2026-11-05, Magpie direct:** image and 600-char base64 requests each returned 403 permission
+  errors without reaching a provider.
 - A temporary Magpie model allowlist rejected a DSH turn with the gate's 403; restoring it let the
   next turn through.
 - Copilot-routed OpenAI Responses `encrypted_content` (5,208 chars) and Anthropic thinking
