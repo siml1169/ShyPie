@@ -31,6 +31,7 @@ import { installGates } from './lib/gate.js'
 import { buildToolDefinitions } from './lib/tools.js'
 import { runExtractCli } from './lib/extract.js'
 import { createSessionRegistry } from './lib/sessions.js'
+import { buildLiveRowConfig, liveFromConfig, SETTINGS_NAMESPACE } from './lib/settings.js'
 
 /** Plugin name shown in diagnostics. */
 export const name = 'privacy-gate'
@@ -140,13 +141,98 @@ function writeArtifact(target, content) {
   writeFileSync(target, content, { encoding: 'utf8', mode: 0o600 })
 }
 
+/** Settings namespace the GUI page binds to; kebab-case, like the row id. */
+export { SETTINGS_NAMESPACE, liveFromConfig } from './lib/settings.js'
+
+/**
+ * Live settings surfaced by the Settings page. These layer over the row config, which stays
+ * the deployment default — a value the user has not touched is inherited from the patch.
+ */
+export const LiveConfig = z.object({
+  scope: z.string().default('session'),
+  allowPaths: z.array(z.string()).default([]),
+  extractCli: z.string().default(''),
+  detectors: z.array(z.string()).default([]),
+  personWords: z.array(z.string()).default([]),
+  blockNonTextResults: z.boolean().default(true),
+  auditEnabled: z.boolean().default(false),
+  auditPath: z.string().default(''),
+  egressAllowProviders: z.array(z.string()).default([]),
+  egressAllowModels: z.array(z.string()).default([]),
+  ocrEngine: z.string().default('local'),
+  visionProvider: z.string().default(''),
+  visionModel: z.string().default(''),
+})
+
+/**
+ * Re-resolve the config from the row layer plus a live settings value and swap it into the
+ * dependency object the gates and tools read.
+ * @param {object} live - a validated LiveConfig value.
+ * @param {object} rowConfig - the row layer, kept below the live one.
+ * @param {object} deps - the mutable dependency object.
+ */
+export async function applyLiveSettings(live, rowConfig, deps) {
+  const merged = resolveConfig(buildLiveRowConfig(rowConfig, live), DEPLOYMENT_DEFAULTS)
+
+  const redaction = await createRedaction(merged)
+  deps.config = merged
+  deps.redactor = redaction.redactor ?? null
+  deps.pii = redaction.pii ?? null
+  deps.state = { broken: redaction.error ?? null }
+  deps.audit = createAudit(merged.audit)
+  deps.sessions = createSessionRegistry({
+    file: merged.sessionsPath,
+    scope: merged.scope,
+    sessionsDir: join(dirname(PRIVATE_HOME), 'sessions'),
+  })
+  return merged
+}
+
+/**
+ * Register the `privacy-gate` settings namespace so the Settings page can edit it live.
+ * The service is optional: without it the row config remains the only surface.
+ * @param {object} ctx
+ * @param {object} rowConfig
+ * @param {object} deps
+ * @param {(message: string) => void} warn
+ */
+async function registerSettings(ctx, rowConfig, deps, warn) {
+  if (typeof ctx.settings?.register !== 'function') {
+    warn('settings service unavailable; the row config is the only configuration surface')
+    return
+  }
+  let brand = (value) => value
+  try {
+    const mod = await import('@deepseek-ai/dsh-settings')
+    if (typeof mod?.settingsNamespace === 'function') brand = mod.settingsNamespace
+  } catch {
+    // Branding is a type-level concern; the raw namespace string is what the service stores.
+  }
+  try {
+    const scope = ctx.settings.register(brand(SETTINGS_NAMESPACE), LiveConfig, {
+      applies: 'live',
+      base: liveFromConfig(deps.config),
+    })
+    scope.watch(async (next) => {
+      try {
+        await applyLiveSettings(next, rowConfig, deps)
+      } catch (error) {
+        warn(`a live settings change was rejected: ${error instanceof Error ? error.message : String(error)}`)
+      }
+    })
+  } catch (error) {
+    warn(`settings namespace not registered: ${error instanceof Error ? error.message : String(error)}`)
+  }
+}
+
 /**
  * Activate the bundle.
  * @param {object} ctx - plugin context.
  * @param {object} config - validated row config.
  */
 export async function apply(ctx, config) {
-  const resolved = resolveConfig(config, DEPLOYMENT_DEFAULTS)
+  const rowConfig = config ?? {}
+  const resolved = resolveConfig(rowConfig, DEPLOYMENT_DEFAULTS)
   const warn = (message) => {
     try {
       ctx.logger?.warn?.(`privacy-gate: ${message}`)
@@ -157,39 +243,45 @@ export async function apply(ctx, config) {
 
   const audit = createAudit(resolved.audit)
   const redaction = await createRedaction(resolved)
-  const state = { broken: redaction.error ?? null }
-  const redactor = redaction.redactor ?? null
-  const pii = redaction.pii ?? null
 
-  // Scope of the gate: per session (default) or the whole profile. The registry snapshots the
-  // sessions that predate this activation once, so old history is never gated retroactively.
-  const sessions = createSessionRegistry({
-    file: resolved.sessionsPath,
-    scope: resolved.scope,
-    sessionsDir: join(dirname(PRIVATE_HOME), 'sessions'),
-  })
-
-  if (state.broken !== null) {
-    warn(`local redaction is unavailable (${state.broken.message}); every gate fails closed`)
+  // One mutable dependency object: the gates and the tools read it per call, so a settings
+  // change can retarget them without unloading the plugin.
+  const deps = {
+    ctx,
+    config: resolved,
+    redactor: redaction.redactor ?? null,
+    pii: redaction.pii ?? null,
+    state: { broken: redaction.error ?? null },
+    audit,
+    sessions: createSessionRegistry({
+      file: resolved.sessionsPath,
+      scope: resolved.scope,
+      // Scope of the gate: per session (default) or the whole profile. The registry snapshots
+      // the sessions that predate this activation once, so old history is never gated.
+      sessionsDir: join(dirname(PRIVATE_HOME), 'sessions'),
+    }),
   }
 
-  installGates({ ctx, config: resolved, redactor, state, audit, sessions })
+  if (deps.state.broken !== null) {
+    warn(`local redaction is unavailable (${deps.state.broken.message}); every gate fails closed`)
+  }
+
+  installGates(deps)
 
   for (const definition of buildToolDefinitions({
-    config: resolved,
-    redactor,
-    pii,
+    ...deps,
     runExtract: (options) => runExtractCli({
       ...options,
-      cliPath: resolved.extractCli,
+      cliPath: deps.config.extractCli,
       nodePath: process.execPath,
     }),
     writeArtifact,
-    audit,
     hashPath,
   })) {
     ctx.tools.register(definition)
   }
+
+  await registerSettings(ctx, rowConfig, deps, warn)
 
   // The model-visible history and every derived request are masked; the raw
   // prompt text still exists locally in the session log (`agent/inbox/spliced`).

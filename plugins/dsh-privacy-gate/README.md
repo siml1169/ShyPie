@@ -103,6 +103,27 @@ sessions, which can only widen the ungated set; it never narrows it silently.
 | `agent/pre-step` | `payload.agent.id` (`Agent.id` is the session id) |
 | `llm/stream` | `request.sessionId`; absent on compaction and session-title calls, which `scope: session` leaves alone |
 
+### Settings namespace — the live layer
+
+The bundle registers a `privacy-gate` namespace with the host settings service
+(`ctx.settings.register`, `applies: 'live'`). It layers **over** the row config: a field the user has
+not touched inherits the patch, and a committed change re-resolves the config, rebuilds the redactor
+and re-creates the session registry without unloading the plugin. A change that would not validate is
+refused at write time, so the running owner keeps its last good value.
+
+| Field | Meaning |
+|---|---|
+| `scope`, `allowPaths`, `extractCli`, `detectors`, `personWords`, `blockNonTextResults` | as in the row config |
+| `auditEnabled`, `auditPath` | the audit journal |
+| `egressAllowProviders`, `egressAllowModels` | egress allowlists |
+| `ocrEngine` | `local` (default), `vision` or `auto` — a preference, not a call |
+| `visionProvider`, `visionModel` | the provider/model a future vision fallback would use; **no image is sent anywhere today** |
+
+Settings are read and written through the settings service (`api.settings.describe` /
+`settingsScope.set`), not by editing `settings.yaml` by hand. If the host exposes the namespace in
+the Plugins page, the schema drives the controls; a dedicated page in `Settings` is the next step and
+needs the client-plugin injection contract verified against a running renderer.
+
 ## Egress guard — fail closed before Magpie
 
 DSH's `llm/stream` waterfall wraps adapter dispatch (`dsh-llm` `streamWithRegistration`). This

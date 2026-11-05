@@ -169,7 +169,10 @@ export function resolveArtifactPath(artifactPath, artifactDir) {
  * @returns {object[]} registry-ready definitions.
  */
 export function buildToolDefinitions(deps) {
-  const { config, redactor, pii, runExtract, writeArtifact, audit, hashPath } = deps
+  const { redactor, pii, runExtract, writeArtifact, audit, hashPath } = deps
+  // config is read per call: the settings page can retarget allowPaths, the extractor and the
+  // budgets while the plugin is loaded.
+  const configOf = () => deps.config
 
   const extractDefinition = (name, spec, description, fixedMode) => ({
     name,
@@ -184,14 +187,14 @@ export function buildToolDefinitions(deps) {
       if (parsed.ok === false) throw new Error(`privacy-gate: ${parsed.error}`)
       const active = requireRedactor(redactor)
       const input = parsed.value
-      const documentPath = resolveAllowedDocument(input.path, config)
+      const documentPath = resolveAllowedDocument(input.path, configOf())
       const result = await runExtract({
         mode: fixedMode ?? input.mode ?? 'auto',
         filePath: documentPath,
-        maxChars: input.max_chars ?? config.maxExtractChars,
+        maxChars: input.max_chars ?? configOf().maxExtractChars,
         pages: input.pages,
         lang: input.lang,
-        timeoutMs: config.toolTimeoutMs,
+        timeoutMs: configOf().toolTimeoutMs,
       })
       if (result === null || typeof result !== 'object') {
         throw new Error('privacy-gate: local extractor returned no result; the document stays local')
@@ -202,7 +205,7 @@ export function buildToolDefinitions(deps) {
       }
       const redacted = redactText(active, result.text)
       if (redacted.blocked) throw new Error('privacy-gate: extracted text carried a binary payload (BLOB); withheld')
-      bounded(redacted.text, config.maxExtractChars)
+      bounded(redacted.text, configOf().maxExtractChars)
       audit.record({ kind: 'extract', length: result.text.length, count: redacted.tokens.length, path_hash: hashPath(input.path) })
       return {
         mode: typeof result.mode === 'string' ? result.mode : (fixedMode ?? input.mode ?? 'auto'),
@@ -281,7 +284,7 @@ export function buildToolDefinitions(deps) {
         if (resolvable.length === 0) {
           throw new Error('privacy-gate: none of the placeholders resolve in this session (values are session-local); nothing was written')
         }
-        const target = resolveArtifactPath(parsed.value.artifact_path, config.artifactDir)
+        const target = resolveArtifactPath(parsed.value.artifact_path, configOf().artifactDir)
         const restored = active.restore(parsed.value.text)
         if (typeof restored !== 'string') throw new Error('privacy-gate: restore returned no text; nothing was written')
         writeArtifact(target, restored)
