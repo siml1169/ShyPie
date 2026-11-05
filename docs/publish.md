@@ -112,7 +112,7 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [x] `pii-core` and `local-extract` published at `0.1.0`; DSH bundle at `0.2.0`.
 - [x] DSH bundle installs into a profile and runs a live session.
 - [x] Magpie middleware source, `cases.json` and test are in-tree (PR #685).
-- [x] Local checks: `bun test packages/privacy-gate` (43/43) and `bun scripts/check.mjs`.
+- [x] Local checks: `bun test packages/privacy-gate` (50/50) and `bun scripts/check.mjs`.
 - [ ] Magpie registry PR merged and community package published.
 - [x] DSH catalog entry submitted ([PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308)).
 - [ ] DSH catalog entry merged.

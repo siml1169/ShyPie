@@ -48,7 +48,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
 | `@shypie_privacy/dsh-privacy-gate` | `0.2.0`, `plugins/dsh-privacy-gate` | npm `0.2.0` published | ✅ egress guard, stable error code and incremental cache live-tested in DSH 0.2.1-rc.5 |
-| `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 43 cases pass |
+| `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 50 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH catalog PR #12308 open | 🟡 |
 
@@ -60,7 +60,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - `local-extract`: 49/49.
 - `dsh-privacy-gate`: 100/100, including the `llm/stream` egress guard (stable `PRIVACY_EGRESS_BLOCKED` code, incremental message cache, PII-block policy).
 - `e2e`: 11/11.
-- Magpie middleware: **43 cases** in the in-tree `packages/privacy-gate/cases.json`; moejs measurement: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms (403 at cap), 200 turns / 350 KB = 38 ms (pass); legacy ShyPie
+- Magpie middleware: **50 cases** in the in-tree `packages/privacy-gate/cases.json`; moejs measurement: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms (403 at cap), 200 turns / 350 KB = 38 ms (pass); root-only declaration scoping added; legacy ShyPie
   harness has 58 checks that predate the six site-scoping regressions.
 
 `node tests/run-all.mjs` covers the ShyPie suites.
@@ -94,7 +94,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
    cannot turn an engine timeout into a rejection; the fix belongs in Magpie (gate declaration or a
    gate-specific budget).
 2. **Magpie PR #685** — open, awaiting re-review/merge. The in-tree package has the site-scoped
-   signature/role/type exemption, newest-first text budget, linear blob scan, primitive/array value bound, per-field text share, 43 cases, and is rebased on current `main` (`2d16b15`).
+   signature/role/type exemption, newest-first text budget, linear blob scan, primitive/array value bound, per-field text share, root-only declaration scoping, 50 cases, and is rebased on current `main` (`40ab0a5`).
 3. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
    yet; it publishes only after the PR merges through the community workflow.
 4. **Legacy npm cleanup** — the external package `@shypie_privacy/magpie-privacy-gate` is still
