@@ -26,6 +26,8 @@ export const CONFIG_KEYS = Object.freeze([
   'egressAllowModels',
   'egressMaxChars',
   'egressMaxNodes',
+  'scope',
+  'sessionsPath',
 ])
 
 /** Defaults for a deployment that configures nothing. */
@@ -44,6 +46,10 @@ export const DEFAULTS = Object.freeze({
   egressAllowModels: [],
   egressMaxChars: 2_000_000,
   egressMaxNodes: 200_000,
+  // Per-session activation is the default: a session that predates first activation is left
+  // alone instead of blocking every turn on history that cannot be masked.
+  scope: 'session',
+  sessionsPath: '',
 })
 
 function fail(message) {
@@ -115,7 +121,11 @@ export function resolveConfig(raw = {}, base = {}) {
     egressAllowModels: stringList('egressAllowModels', raw.egressAllowModels ?? DEFAULTS.egressAllowModels),
     egressMaxChars: positiveInteger('egressMaxChars', raw.egressMaxChars ?? DEFAULTS.egressMaxChars),
     egressMaxNodes: positiveInteger('egressMaxNodes', raw.egressMaxNodes ?? DEFAULTS.egressMaxNodes),
+    scope: raw.scope ?? DEFAULTS.scope,
+    sessionsPath: typeof (raw.sessionsPath ?? '') === 'string' ? (raw.sessionsPath ?? '') : fail('sessionsPath must be a string'),
   }
+
+  if (resolved.scope !== 'session' && resolved.scope !== 'system') fail('scope must be "session" or "system"')
 
   if (typeof resolved.blockNonTextResults !== 'boolean') fail('blockNonTextResults must be a boolean')
   if (typeof resolved.audit.enabled !== 'boolean') fail('audit.enabled must be a boolean')
@@ -123,9 +133,10 @@ export function resolveConfig(raw = {}, base = {}) {
   if (typeof resolved.placeholderKey.file !== 'string') fail('placeholderKey.file must be a string')
   if (resolved.audit.enabled && resolved.audit.path.length === 0) fail('audit.path is required when audit.enabled is true')
 
-  // Deployment-supplied fallbacks for the three path-valued settings.
+  // Deployment-supplied fallbacks for the path-valued settings.
   resolved.extractCli = resolved.extractCli.length > 0 ? resolved.extractCli : (base.extractCli ?? '')
   resolved.artifactDir = resolved.artifactDir.length > 0 ? resolved.artifactDir : (base.artifactDir ?? '')
+  resolved.sessionsPath = resolved.sessionsPath.length > 0 ? resolved.sessionsPath : (base.sessionsPath ?? '')
   resolved.placeholderKey.file = resolved.placeholderKey.file.length > 0
     ? resolved.placeholderKey.file
     : (base.keyFile ?? '')

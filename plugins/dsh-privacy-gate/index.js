@@ -30,6 +30,7 @@ import { createAudit, hashPath } from './lib/audit.js'
 import { installGates } from './lib/gate.js'
 import { buildToolDefinitions } from './lib/tools.js'
 import { runExtractCli } from './lib/extract.js'
+import { createSessionRegistry } from './lib/sessions.js'
 
 /** Plugin name shown in diagnostics. */
 export const name = 'privacy-gate'
@@ -73,6 +74,8 @@ const DEPLOYMENT_DEFAULTS = Object.freeze({
   // Never inside the repository: these hold plaintext and a secret key.
   artifactDir: join(PRIVATE_HOME, 'artifacts'),
   keyFile: join(PRIVATE_HOME, 'placeholder.key'),
+  // Per-session activation record; `<DSH_HOME>/sessions` is the directory the snapshot reads.
+  sessionsPath: join(PRIVATE_HOME, 'sessions.json'),
 })
 
 /**
@@ -100,6 +103,8 @@ export const Config = z.object({
   egressAllowModels: z.array(z.string()).default([]),
   egressMaxChars: z.number().step(1).min(1).default(2_000_000),
   egressMaxNodes: z.number().step(1).min(1).default(200_000),
+  scope: z.string().default('session'),
+  sessionsPath: z.string().default(''),
 })
 
 /**
@@ -156,11 +161,19 @@ export async function apply(ctx, config) {
   const redactor = redaction.redactor ?? null
   const pii = redaction.pii ?? null
 
+  // Scope of the gate: per session (default) or the whole profile. The registry snapshots the
+  // sessions that predate this activation once, so old history is never gated retroactively.
+  const sessions = createSessionRegistry({
+    file: resolved.sessionsPath,
+    scope: resolved.scope,
+    sessionsDir: join(dirname(PRIVATE_HOME), 'sessions'),
+  })
+
   if (state.broken !== null) {
     warn(`local redaction is unavailable (${state.broken.message}); every gate fails closed`)
   }
 
-  installGates({ ctx, config: resolved, redactor, state, audit })
+  installGates({ ctx, config: resolved, redactor, state, audit, sessions })
 
   for (const definition of buildToolDefinitions({
     config: resolved,

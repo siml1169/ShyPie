@@ -203,6 +203,9 @@ export function inspectEgress(request, deps, cache = null) {
 export function createEgressGuard(deps) {
   const inspectedMessages = new WeakSet()
   return (request, next) => {
+    // Session scope: a request with no session id (compaction, session title) cannot prove the
+    // session opted in, so in 'session' scope it is left alone; 'system' scope inspects it.
+    if (deps?.sessions && !deps.sessions.isEnabled(request?.sessionId)) return next()
     const verdict = inspectEgress(request, deps, inspectedMessages)
     if (verdict.ok !== true) {
       try {

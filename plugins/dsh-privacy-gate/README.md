@@ -64,7 +64,7 @@ copy already inside the package. `engines.dsh` is `>=0.2.0 <0.3.0`
 allowPaths: []                # path prefixes where a document may be read/extracted ([] means none)
 detectors: []                 # pii-core kinds; empty = all
 personWords: []               # allowWords for PERSON detection
-extractCli: ''                # defaults to ../../packages/local-extract/cli.js
+extractCli: ''                # defaults to the sibling checkout, then the installed local-extract
 audit: { enabled: false, path: '' }   # JSONL, kind/length/count/path_hash/ts only
 placeholderKey: { file: '' }  # defaults to ~/.dsh/privacy/placeholder.key, created 0600
 blockNonTextResults: true     # block tool results containing image/file blocks
@@ -75,9 +75,33 @@ egressAllowProviders: []     # [] = every provider; exact, * or prefix/* pattern
 egressAllowModels: []        # [] = every model
 egressMaxChars: 2000000      # reject instead of passing an uninspectable request
 egressMaxNodes: 200000
+scope: session               # session (default) | system — see below
+sessionsPath: ''             # defaults to ~/.dsh/privacy/sessions.json
 ```
 
 There is no `failClosed` switch: the gate always fails closed.
+
+### Scope — per session by default
+
+`scope: session` (the default) binds the gate to sessions instead of the whole profile. On first
+activation the bundle writes `~/.dsh/privacy/sessions.json` and records, **once**, the sessions that
+already exist under `<DSH_HOME>/sessions`: those are stored as `false` and are never gated, so
+history written before the bundle existed cannot turn every later turn into
+`PRIVACY_EGRESS_BLOCKED`. Sessions first seen after activation are gated; a later `setEnabled` in
+that record wins over the snapshot.
+
+`scope: system` is the old behaviour: every session, including ones that predate the bundle. Use it
+only after quarantining old logs — the first request that folds unmaskable history is rejected.
+
+The record holds session ids and booleans only — no content, no paths, no per-session timestamps —
+and is written atomically with mode 0600. A missing or corrupt record re-snapshots the legacy
+sessions, which can only widen the ungated set; it never narrows it silently.
+
+| seam | session identity |
+|---|---|
+| `tools/post-execute`, `ctx.tools.guard` | `exec.agent.id` (`SessionId`) |
+| `agent/pre-step` | `payload.agent.id` (`Agent.id` is the session id) |
+| `llm/stream` | `request.sessionId`; absent on compaction and session-title calls, which `scope: session` leaves alone |
 
 ## Egress guard — fail closed before Magpie
 

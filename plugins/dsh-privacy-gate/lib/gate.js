@@ -173,8 +173,19 @@ export function shapePtcDispatchLog(deps, blocks) {
 }
 
 /**
+ * Whether the gate applies to one session. A deployment without a registry keeps the old
+ * system-wide behaviour, which is also what `scope: 'system'` selects.
+ * @param {{ sessions?: { isEnabled(id: string|undefined): boolean } }} deps
+ * @param {string|undefined} sessionId
+ */
+function gateActive(deps, sessionId) {
+  if (deps.sessions === undefined || deps.sessions === null) return true
+  return deps.sessions.isEnabled(sessionId)
+}
+
+/**
  * Register every gate on one plugin context.
- * @param {{ ctx: object, config: object, redactor: object|null, state: { broken: Error|null }, audit: object }} deps
+ * @param {{ ctx: object, config: object, redactor: object|null, state: { broken: Error|null }, audit: object, sessions?: object }} deps
  * @returns {() => void} a disposer for all registrations.
  */
 export function installGates(deps) {
@@ -183,17 +194,20 @@ export function installGates(deps) {
 
   disposers.push(ctx.on('tools/post-execute', async (exec, result, next) => {
     const decision = await next()
+    if (!gateActive(deps, exec?.agent?.id)) return decision
     if (decision !== null && typeof decision === 'object' && decision.kind === 'block') return decision
     return shapePostExecute(deps, exec, result, decision)
   }))
 
   disposers.push(ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
+    if (!gateActive(deps, payload?.agent?.id)) return decision
     return shapePreStep(deps, payload, decision)
   }))
 
   disposers.push(ctx.on('tools/ptc-dispatch-log', async (dispatch, next) => {
     const blocks = await next()
+    if (!gateActive(deps, dispatch?.agent?.id ?? dispatch?.sessionId)) return blocks
     return shapePtcDispatchLog(deps, blocks)
   }))
 
@@ -205,7 +219,7 @@ export function installGates(deps) {
     global: true,
   }))
 
-  disposers.push(ctx.tools.guard((exec) => guardDecision(exec, deps.config)))
+  disposers.push(ctx.tools.guard((exec) => (gateActive(deps, exec?.agent?.id) ? guardDecision(exec, deps.config) : undefined)))
 
   return () => {
     for (const dispose of disposers) {
