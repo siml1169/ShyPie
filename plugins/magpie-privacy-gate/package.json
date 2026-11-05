@@ -45,7 +45,7 @@
       "blobBase64Chars": 400,
       "blobHexChars": 400,
       "scanChars": 200000,
-      "maxNodes": 200000,
+      "maxNodes": 40000,
       "maxDepth": 40,
       "logMaxLines": 40,
       "logEveryRows": 50

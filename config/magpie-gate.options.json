@@ -18,5 +18,6 @@
   "blobBase64Chars": 400,
   "blobHexChars": 400,
   "scanChars": 200000,
+  "maxNodes": 40000,
   "allowUnknownProtocol": false
 }

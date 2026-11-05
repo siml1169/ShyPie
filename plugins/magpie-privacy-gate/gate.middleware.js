@@ -52,7 +52,7 @@
 //   localProviders: string[]     globs; provider ids that may receive binary parts even
 //                                when the model id is not in localModels. Checked in
 //                                onProvider, where the provider is actually known.
-//   maxNodes: number             200000. JSON nodes inspected per request.
+//   maxNodes: number             40000. JSON nodes inspected per request.
 //   maxDepth: number             40. Nesting depth inspected per request.
 //   logMaxLines: number          40. console.log lines this module may emit
 //                                (magpie caps middleware output at 60 a minute).
@@ -117,7 +117,7 @@ var DEFAULTS = {
   // a 1M-token session is normal. The bound is deterministic (no clock), so the hook
   // cannot overrun its 250 ms budget and be ignored (which would fail open).
   scanChars: 200000,
-  maxNodes: 200000,
+  maxNodes: 40000,
   maxDepth: 40,
   logMaxLines: 40,
   logEveryRows: 50
@@ -215,17 +215,34 @@ function matchesAny(patterns, value) {
 // Inspection: walk the body, classify parts, hunt blobs
 // ---------------------------------------------------------------------------
 
-var blobRegCache = {};
+// Linear run-length checks: an unanchored /{400,}/ regex backtracks badly on
+// long near-threshold input and can blow the 250 ms hook budget (fail open).
+function hasBase64Run(text, min) {
+  var run = 0;
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charCodeAt(i);
+    if ((c >= 48 && c <= 57) || (c >= 65 && c <= 90) || (c >= 97 && c <= 122) || c === 43 || c === 47) {
+      run++;
+      if (run >= min) return true;
+    } else {
+      run = 0;
+    }
+  }
+  return false;
+}
 
-function blobRegs(minBase64, minHex) {
-  var key = minBase64 + ":" + minHex;
-  if (has(blobRegCache, key)) return blobRegCache[key];
-  var regs = {
-    base64: new RegExp("[A-Za-z0-9+/]{" + minBase64 + ",}={0,2}"),
-    hex: new RegExp("[0-9A-Fa-f]{" + minHex + ",}")
-  };
-  blobRegCache[key] = regs;
-  return regs;
+function hasHexRun(text, min) {
+  var run = 0;
+  for (var i = 0; i < text.length; i++) {
+    var c = text.charCodeAt(i);
+    if ((c >= 48 && c <= 57) || (c >= 65 && c <= 70) || (c >= 97 && c <= 102)) {
+      run++;
+      if (run >= min) return true;
+    } else {
+      run = 0;
+    }
+  }
+  return false;
 }
 
 // A payload wrapped at a fixed width escapes the single-run test, so count
@@ -319,12 +336,11 @@ function scanText(text, state, opts) {
     return;
   }
 
-  var regs = blobRegs(opts.blobBase64Chars, opts.blobHexChars);
-  if (window.length >= opts.blobHexChars && regs.hex.test(window)) {
+  if (window.length >= opts.blobHexChars && hasHexRun(window, opts.blobHexChars)) {
     state.blob = { code: "HEX_RUN", length: window.length };
     return;
   }
-  if (window.length >= opts.blobBase64Chars && regs.base64.test(window)) {
+  if (window.length >= opts.blobBase64Chars && hasBase64Run(window, opts.blobBase64Chars)) {
     state.blob = { code: "BASE64_RUN", length: window.length };
     return;
   }
@@ -364,36 +380,91 @@ function binaryOf(node, partContext) {
   return null;
 }
 
-// Vendor-sealed signature fields are opaque blobs the vendor hands back and expects
-// replayed verbatim (Anthropic thinking signature, Responses reasoning
-// encrypted_content, Gemini thoughtSignature). They are exempt from the blob scan
-// ONLY inside the vendor's own block/part: a key named "signature" in tool arguments
-// or message text is ordinary content and is still scanned.
-function sealedFields(value, partContext) {
-  if (!partContext) return null;
+// Exempt a vendor-sealed field only at the position the protocol reserves for it.
+// The walker assigns these site tags from the protocol layout; it never infers a site
+// from a key name, so a tool argument or message text that imitates a vendor block is
+// still scanned.
+var SITE_ROOT = "root";
+var SITE_MESSAGES = "messages";
+var SITE_MESSAGE = "message";
+var SITE_CONTENT = "content";
+var SITE_ANTHROPIC_ASSISTANT = "anthropic-assistant-content";
+var SITE_CHAT_ASSISTANT = "chat-assistant-content";
+var SITE_RESPONSES_INPUT = "responses-input";
+var SITE_RESPONSES_ITEM = "responses-item";
+var SITE_GEMINI_CONTENTS = "gemini-contents";
+var SITE_GEMINI_CONTENT = "gemini-content";
+var SITE_GEMINI_PARTS = "gemini-parts";
+var SITE_GEMINI_MODEL_PARTS = "gemini-model-parts";
+
+function isPartSite(site) {
+  return site === SITE_CONTENT || site === SITE_ANTHROPIC_ASSISTANT ||
+    site === SITE_CHAT_ASSISTANT || site === SITE_GEMINI_PARTS ||
+    site === SITE_GEMINI_MODEL_PARTS || site === SITE_RESPONSES_ITEM;
+}
+
+function sealedFields(value, site) {
   var type = value.type;
-  // Vendor-sealed content and the vendor's own opaque item ids. Some providers
-  // (Copilot among them) hand back ids that are themselves 400+ char base64
-  // tokens, so replayed ids are the same false positive as signatures when they
-  // sit on a vendor item. A user-supplied id on an ordinary message is not
-  // exempt: without a vendor item type, partContext alone is not enough.
-  if (type === "thinking" || type === "redacted_thinking") {
-    return { signature: 1, thinkingSignature: 1, data: 1, id: 1 };
+  if (site === SITE_ANTHROPIC_ASSISTANT) {
+    // Anthropic protocol: thinking carries signature; redacted_thinking carries data.
+    if (type === "thinking") return { signature: 1 };
+    if (type === "redacted_thinking") return { data: 1 };
+    return null;
   }
-  if (type === "reasoning") return { encrypted_content: 1, id: 1 };
-  if (type === "message") return { id: 1 };
-  if (type === "toolCall" || type === "tool_call" || type === "function_call") {
-    return { id: 1, call_id: 1, thoughtSignature: 1, textSignature: 1 };
+  if (site === SITE_CHAT_ASSISTANT) {
+    // DSH's pi-ai chat shape uses thinkingSignature on a thinking block; tool calls
+    // carry vendor ids and thought signatures. Chat text parts have none.
+    if (type === "thinking") return { thinkingSignature: 1 };
+    if (type === "toolCall" || type === "tool_call" || type === "function_call") {
+      return { id: 1, call_id: 1, thoughtSignature: 1, textSignature: 1 };
+    }
+    return null;
   }
-  if (has(value, "thoughtSignature") || has(value, "textSignature")) {
-    return { thoughtSignature: 1, textSignature: 1, id: 1 };
+  if (site === SITE_RESPONSES_ITEM) {
+    // Responses input items: only a reasoning item's encrypted_content/id and an
+    // assistant message's id are vendor-sealed. A user message's id is not.
+    if (type === "reasoning") return { encrypted_content: 1, id: 1 };
+    if (type === "message" && value.role === "assistant") return { id: 1 };
+    if (type === "function_call" || type === "custom_tool_call" || type === "tool_call") {
+      return { id: 1, call_id: 1 };
+    }
+    return null;
+  }
+  if (site === SITE_GEMINI_MODEL_PARTS) {
+    // Only a model-role Gemini part holds vendor signatures; a user part does not.
+    if (has(value, "thoughtSignature") || has(value, "textSignature")) {
+      return { thoughtSignature: 1, textSignature: 1 };
+    }
   }
   return null;
 }
 
-// Bounded depth-first walk. `partContext` is true for an element of a
-// content/parts/output/input array, which is where part shapes live.
-function walkValue(value, partContext, depth, state, opts) {
+// The only arrays that can carry a protocol site tag. Everything nested below a
+// site (tool_use.input, tool_result.content, function_call.arguments, ...) falls
+// back to null and is scanned as ordinary content.
+function childSite(protocol, site, key, child, role) {
+  if (!Array.isArray(child)) return null;
+  if (site === SITE_ROOT) {
+    if ((protocol === "anthropic" || protocol === "chat") && key === "messages") return SITE_MESSAGES;
+    if (protocol === "responses" && key === "input") return SITE_RESPONSES_INPUT;
+    if (protocol === "gemini" && key === "contents") return SITE_GEMINI_CONTENTS;
+    return null;
+  }
+  if (site === SITE_MESSAGE && key === "content") {
+    if (role === "assistant") {
+      return protocol === "chat" ? SITE_CHAT_ASSISTANT : SITE_ANTHROPIC_ASSISTANT;
+    }
+    return SITE_CONTENT;
+  }
+  if (site === SITE_RESPONSES_ITEM && key === "content") return SITE_CONTENT;
+  if (site === SITE_GEMINI_CONTENT && key === "parts") {
+    return role === "model" ? SITE_GEMINI_MODEL_PARTS : SITE_GEMINI_PARTS;
+  }
+  return null;
+}
+
+// Bounded depth-first walk with an explicit protocol site.
+function walkValue(value, site, depth, state, opts, protocol) {
   if (state.limited !== null || state.binary !== null || state.blob !== null) return;
 
   if (depth > opts.maxDepth) {
@@ -413,28 +484,43 @@ function walkValue(value, partContext, depth, state, opts) {
   }
 
   if (Array.isArray(value)) {
+    var itemSite = site;
+    if (site === SITE_MESSAGES) itemSite = SITE_MESSAGE;
+    else if (site === SITE_RESPONSES_INPUT) itemSite = SITE_RESPONSES_ITEM;
+    else if (site === SITE_GEMINI_CONTENTS) itemSite = SITE_GEMINI_CONTENT;
+    // Spend the text budget on the newest turn first; older turns were inspected
+    // when they were the newest, and a long history must not starve the new one.
+    var reverse = site === SITE_MESSAGES || site === SITE_RESPONSES_INPUT || site === SITE_GEMINI_CONTENTS;
     for (var i = 0; i < value.length; i++) {
-      walkValue(value[i], partContext, depth + 1, state, opts);
+      var index = reverse ? value.length - 1 - i : i;
+      walkValue(value[index], itemSite, depth + 1, state, opts, protocol);
       if (state.limited !== null || state.binary !== null || state.blob !== null) return;
     }
     return;
   }
 
-  var found = binaryOf(value, partContext);
+  var found = binaryOf(value, isPartSite(site));
   if (found !== null) {
     state.binary = found;
     return;
   }
 
-  var sealed = sealedFields(value, partContext);
+  var sealed = sealedFields(value, site);
+  var role = typeof value.role === "string" ? value.role : "";
   var keys = Object.keys(value);
+  // At the body root, inspect the protocol content array before other text fields
+  // (system/instructions) so that newest conversation content gets the budget.
+  if (site === SITE_ROOT) {
+    var contentKey = (protocol === "anthropic" || protocol === "chat") ? "messages" : protocol === "responses" ? "input" : protocol === "gemini" ? "contents" : "";
+    var at = contentKey ? keys.indexOf(contentKey) : -1;
+    if (at > 0) { keys.splice(at, 1); keys.unshift(contentKey); }
+  }
   for (var j = 0; j < keys.length; j++) {
     var key = keys[j];
     if (SKIP_KEY[key]) continue;
-    if (sealed !== null && sealed[key]) continue;
     var child = value[key];
-    var childPart = PART_ARRAY_KEY[key] === 1 && Array.isArray(child);
-    walkValue(child, childPart, depth + 1, state, opts);
+    if (sealed !== null && sealed[key] && typeof child === "string") continue;
+    walkValue(child, childSite(protocol, site, key, child, role), depth + 1, state, opts, protocol);
     if (state.limited !== null || state.binary !== null || state.blob !== null) return;
   }
 }
@@ -518,18 +604,18 @@ function inspect(body, ctx) {
     limited: null,
     degraded: false
   };
-  walkValue(body, false, 0, state, opts);
+  walkValue(body, SITE_ROOT, 0, state, opts, protocol);
 
   if (state.degraded) {
     // Not a rejection: the text scan hit its character budget. The structural decision
     // (binary parts, depth, node count) is complete, and the DSH Gate 1 covers text.
-    logLine("privacy-gate: text scan hit its time budget; structural checks only", opts);
+    logLine("privacy-gate: text scan hit its character budget; structural checks only", opts);
   }
 
   if (state.limited !== null) {
     return blocked(
       "INSPECT_LIMIT",
-      "privacy-gate: the request is too large to inspect inside the middleware time budget (" +
+      "privacy-gate: the request is too large to inspect inside the middleware inspection budget (" +
         state.limited + " limit); nothing was sent."
     );
   }

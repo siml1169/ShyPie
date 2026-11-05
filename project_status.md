@@ -78,7 +78,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
   Reproduced with a 3.59 MB / 60k-message body at `maxNodes: 500000`: the log said
   `onRequest: took too long`, the gate did not answer, and the request reached the upstream (400 for
   the deliberately invalid model). At the default `maxNodes: 40000`, a 30k-message body returned
-  403 in 0.29 s wall and 200k 400-char runs in 0.015 s, so the measured issue bodies no longer time
+  403 in 0.21 s wall and 200k 400-char runs in 0.015 s, so the measured issue bodies no longer time
   out — but a slower host or a body under a raised budget can still fail open.
 - A DSH headless session patched to `copilot/gpt-6.1-sol` resumed a second turn through the same
   gateway.

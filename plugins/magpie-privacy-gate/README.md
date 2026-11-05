@@ -77,7 +77,7 @@ magpie plugin options magpie-privacy-gate '{
   "blobBase64Chars": 400,
   "blobHexChars": 400,
   "scanChars": 200000,
-  "maxNodes": 200000,
+  "maxNodes": 40000,
   "maxDepth": 40,
   "logMaxLines": 40,
   "logEveryRows": 50
@@ -94,10 +94,10 @@ the `magpie-` prefix — that spelling is **UNVERIFIED**, see [the hooks evidenc
 | Option | Default | Meaning |
 |---|---|---|
 | `allowModels` | `[]` | Globs against the model id as the agent asked (`<provider>/<model>` or a routing group's name, <https://usemagpie.ai/docs/integrate#gateway>). `[]` = every model passes this rule. Anything else gets a 403 naming the model and the policy. |
-| `localModels` | `[]` | Globs of models that may receive binary/document parts because the endpoint is local (Ollama, LM Studio). This must mirror the providers where you turned **Send requests unmasked** on — a provider that skips masking and is not in `localModels` is exactly the case this gate exists for. `[]` = no model may receive bytes. |
+| `localModels` | `[]` | Globs of models that may receive binary/document parts on `onRequest`. Pair with `localProviders`: with `localModels` alone, `onProvider` blanks the content rather than sending it. `[]` = no model may receive bytes. |
 | `allowUnknownProtocol` | `false` | `ctx.protocol` is one of `chat`, `responses`, `anthropic`, `gemini`. Anything else cannot be classified and is rejected. Only turn this on if you have taught yourself what the body looks like. |
 | `localProviders` | `[]` | Globs of *provider* ids that may receive binary parts. Checked in `onProvider`, where the provider is known: a local-sounding model id alone is not enough (`[]` = no provider may receive bytes). |
-| `scanChars` / `maxNodes` / `maxDepth` | `200000` / `200000` / `40` | Deterministic text-inspection budget per request (edges of long fields). Long bodies are not rejected; over budget the gate logs degraded. `maxNodes`/`maxDepth` overflow is still a rejection. |
+| `scanChars` / `maxNodes` / `maxDepth` | `200000` / `40000` / `40` | Deterministic text-inspection budget per request (edges of long fields). Long bodies are not rejected; over budget the gate logs degraded. `maxNodes`/`maxDepth` overflow is still a rejection. |
 | `blobBase64Chars` / `blobHexChars` | `400` / `400` | An encoded run at or above this is a **blob** and gets a 403. This is deliberately below a one-page invoice (~1.3 k base64 chars), so a false positive on a long hash or minified line is possible; raise these only if you accept the larger document that then passes. |
 | `logMaxLines` | `40` | Self-cap on `console.log`. magpie's own cap is 60 lines a minute (<https://usemagpie.ai/docs/plugins#middleware>). |
 | `logEveryRows` | `50` | One usage line every N usage rows. |
@@ -177,7 +177,7 @@ curl -s -w '\nHTTP %{http_code}\n' http://127.0.0.1:3425/v1/chat/completions \
 # -> privacy-gate: a content part of type "image_url" cannot be masked locally; …
 #    HTTP 403, and nothing was sent upstream (routing never happened).
 
-# 4. the same request with a model in `localModels` is accepted (it is local by definition).
+# 4. with a model in `localModels` AND its provider in `localProviders`, the request is accepted; with only `localModels`, onProvider blanks the content.
 
 # 5. the log line (magpie's own log; paths from https://usemagpie.ai/docs/privacy#files)
 #    Windows:  Select-String -Path "$env:LOCALAPPDATA\magpie\logs\app.log" -Pattern "privacy-gate:"
