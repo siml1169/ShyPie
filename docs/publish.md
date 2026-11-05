@@ -20,7 +20,7 @@ cleanup; the published version will be deprecated with a pointer to the communit
 
 ## 1. ShyPie npm releases
 
-The three remaining ShyPie packages keep the coordinated `0.1.0` release. `npm pack --dry-run` in
+`pii-core` and `local-extract` remain at `0.1.0`; the DSH bundle is `0.2.0`. `npm pack --dry-run` in
 each directory checks the `files` allowlist.
 
 npm's staged publishing is the path used here:
@@ -123,7 +123,8 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 
 ## 5. Version strategy
 
-`0.1.0` was the coordinated ShyPie release. The Magpie middleware is now versioned by
-magpie-community/plugins; its in-tree first release carries the vendor-signature and rejection fixes.
-The ShyPie packages (`pii-core`, `local-extract`, DSH bundle) realign at the next coordinated release.
+`0.1.0` was the coordinated release for `pii-core` and `local-extract`; the DSH bundle shipped
+`0.2.0` separately with the egress guard. The Magpie middleware is versioned by
+magpie-community/plugins; its in-tree first release carries the signature/rejection fixes. The three
+ShyPie packages realign at the next coordinated release.
 The registries read versions from npm, so the submission files only change on a package rename.

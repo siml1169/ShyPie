@@ -9,16 +9,18 @@ This repository is a reference implementation of a two-plugin combo for
 
 | Component | npm package | Role |
 |---|---|---|
-| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, and guards binary reads |
+| [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | DSH host bundle: redacts tool output and document text at **ingestion**, provides local `privacy_extract` / `privacy_ocr` / `privacy_scan` / `privacy_rehydrate` tools, guards binary reads, and enforces a fail-closed `llm/stream` egress guard |
 | [Magpie middleware (in-tree)](https://github.com/magpie-community/plugins/pull/685) | `@magpie-community/middleware-privacy-gate` | Magpie gateway middleware: a structural egress firewall that rejects content Magpie cannot mask (images, files, encoded blobs) for non-local models |
 | [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
 | [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
 
-The DSH bundle, `pii-core` and `local-extract` are published on npm at `0.1.0`. The Magpie
-middleware now lives **in-tree** in [magpie-community/plugins](https://github.com/magpie-community/plugins/pull/685)
+`pii-core` and `local-extract` are published on npm at `0.1.0`; the DSH bundle is at `0.2.0` with
+its fail-closed `llm/stream` egress guard. The Magpie middleware now lives **in-tree** in
+[magpie-community/plugins](https://github.com/magpie-community/plugins/pull/685)
 (`@magpie-community/middleware-privacy-gate`); the legacy `@shypie_privacy/magpie-privacy-gate`
 package is no longer referenced and is being retired. The registry entry is [PR #685](https://github.com/magpie-community/plugins/pull/685);
-the DSH catalog entry is ready to submit. [docs/publish.md](docs/publish.md) has the exact state.
+the DSH catalog entry is [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308).
+[docs/publish.md](docs/publish.md) has the exact state.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
 documented precisely in [docs/design.md](docs/design.md) and summarised below.
@@ -63,8 +65,9 @@ model output (placeholders) ─► privacy_rehydrate ─► local artifact
 
 ## What it protects
 
-- **Tool and document ingress.** Every tool result is scanned by deterministic detectors before it
-  is appended; PDFs, Office documents and scans are converted to text locally first.
+- **Tool and document ingress.** Tool-result **text** is scanned by deterministic detectors before
+  it is appended; PDFs, Office documents and scans are converted to text locally first. Error-result
+  `meta` is not rewritten and remains a documented local residual.
 - **Local conversion only.** Text layers use `pdftotext`; scans use `pdftoppm` plus a local OCR
   adapter (on Windows, the built-in `Windows.Media.Ocr` engine — no install, no network). If no
   local engine exists the call is **blocked** (`NO_LOCAL_OCR`), never sent to a cloud converter.
@@ -147,7 +150,7 @@ packages/
 plugins/
   dsh-privacy-gate/       DeepSeek Harness bundle
   magpie-privacy-gate/    Magpie gateway middleware
-marketplace/              submission files; Magpie PR #685 open, DSH entry pending repo age
+marketplace/              submission files; Magpie PR #685 open, DSH catalog PR #12308 open
 config/                   example Magpie middleware options
 tests/                    end-to-end tests and the one-command runner
 LICENSE                   MIT
@@ -166,14 +169,16 @@ LICENSE                   MIT
 
 ## Status
 
-Reference implementation, tested on one Windows machine. **Published:** `pii-core`, `local-extract`
-and the DSH bundle at `0.2.0` (with its egress guard). The Magpie middleware moved **in-tree** to magpie-community/plugins
+Reference implementation, tested on one Windows machine. **Published:** `pii-core` and
+`local-extract` at `0.1.0`, and the DSH bundle at `0.2.0` (with its egress guard). The Magpie middleware moved **in-tree** to magpie-community/plugins
 ([PR #685](https://github.com/magpie-community/plugins/pull/685)); the legacy
 `@shypie_privacy/magpie-privacy-gate` npm package is no longer referenced and is being retired. Tag
-`v0.1.1` exists; there is no GitHub release yet. The DSH catalog entry is ready to submit.
+`v0.2.0` and its GitHub release are published; the DSH catalog entry is
+[PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308).
 The **live wiring** was exercised manually on 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle
 installed from npm, two-turn DeepSeek and Copilot `gpt-6.1-sol` sessions through a live Magpie
-gateway, and a temporary model-allowlist block that the gate rejected. OpenAI Responses
+gateway, and a temporary model-allowlist block that the gate rejected. The 0.2.0 `llm/stream` guard
+and its stable `PRIVACY_EGRESS_BLOCKED` code were re-verified on 2026-11-05. OpenAI Responses
 `encrypted_content` and Anthropic thinking `signature` were replayed through Copilot-routed
 models and accepted (HTTP 200). It is not part of the automated suite; the remaining
 verification limits are listed in [docs/design.md §11](docs/design.md#11-verification).

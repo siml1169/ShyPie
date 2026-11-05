@@ -24,7 +24,7 @@ The goal is **implemented and verified on the reference machine**, but not fully
 - the Magpie egress half is finished, moved in-tree to magpie-community/plugins, and awaiting review
   and its first community release;
 - the legacy personal-scope npm package is retired in the docs but still needs its registry
-  deprecation/OTP cleanup;
+  deprecation/legacy cleanup;
 - neither marketplace listing is live yet.
 
 This is a **best-effort privacy design, not an absolute guarantee**. The named residuals in
@@ -34,9 +34,9 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 | Initial requirement | How it is implemented | Evidence | Status |
 |---|---|---|---|
-| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; DSH Gate 1 redacts every tool result before append; DSH Gate 3 rewrites model-visible user text; Magpie's Privacy masking covers the gateway text path | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 86/86; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
+| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; DSH Gate 1 redacts tool-result text before append (error-result `meta` is not rewritten); DSH Gate 3 rewrites model-visible user text; DSH `llm/stream` egress guard; Magpie's Privacy masking covers the gateway text path | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 100/100; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
 | **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49 tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all 8 block reasons tested | Met on Windows; no cloud converter is ever called |
-| **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; Magpie middleware returns 403 for binary parts, blobs, disallowed models, and blanks content in `onProvider` when it cannot reject | Magpie 33 in-tree cases; live image 403; model-allowlist live 403 for DSH and Copilot; vendor-signature replays 200 after the exemption fix | Met; the bounded text scan and pre-uploaded Files-API references are documented residual limits |
+| **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; the DSH `llm/stream` guard blocks before dispatch; Magpie middleware returns 403 for binary parts, blobs, disallowed models, and blanks content in `onProvider` when it cannot reject | Magpie 50 in-tree cases; live image 403; model-allowlist live 403 for DSH and Copilot; vendor-signature replays 200 after the exemption fix | Met; the bounded text scan and pre-uploaded Files-API references are documented residual limits |
 | **DSH + Magpie plugin combo** | DSH host bundle (`@shypie_privacy/dsh-privacy-gate`) plus Magpie gateway middleware (`@magpie-community/middleware-privacy-gate`) | DSH bundle installs into `headless` and `desktop` profiles; live two-turn DeepSeek and Copilot sessions; middleware loaded in a live Magpie gateway | Met in code; Magpie package is not yet published from its new home |
 | **A usable, maintained distribution** | ShyPie npm packages published (`dsh-privacy-gate` at `0.2.0`, others at `0.1.0`); Magpie middleware in-tree in magpie-community/plugins (PR #685); tag `v0.2.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); this repository's tags | Partial: Magpie community package and catalog merges are pending |
 | **Honest limits, not a false guarantee** | design §12, security review with resolution table, bounded-scan/summary wording, explicit "does not mask text" scope | [docs/design.md](docs/design.md), [docs/research/security-review.md](docs/research/security-review.md), Magpie registry summary | Met; see §5 below for what is still not true |
@@ -49,7 +49,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
 | `@shypie_privacy/dsh-privacy-gate` | `0.2.0`, `plugins/dsh-privacy-gate` | npm `0.2.0` published | ✅ egress guard, stable error code and incremental cache live-tested in DSH 0.2.1-rc.5 |
 | `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 50 cases pass |
-| legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
+| legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation pending |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH catalog PR #12308 open | 🟡 |
 
 ## 5. Verification snapshot
@@ -98,11 +98,11 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 3. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
    yet; it publishes only after the PR merges through the community workflow.
 4. **Legacy npm cleanup** — the external package `@shypie_privacy/magpie-privacy-gate` is still
-   installable and its `0.1.1` stage still exists. Both writes need a fresh npm OTP:
-   `npm stage reject a9792716-3890-46a2-ae6f-c92e0fcf3aae` and
+   installable and its `0.1.1` stage still exists. Both writes need a fresh authenticated npm write
+   (web 2FA or OTP): `npm stage reject a9792716-3890-46a2-ae6f-c92e0fcf3aae` and
    `npm deprecate "@shypie_privacy/magpie-privacy-gate@*" "…"`.
-5. **DSH catalog** — submitted as awesome-dsh-plugin PR #12308; waiting for review.
-6. **GitHub releases** — `v0.1.1` exists; `v0.2.0` is tagged and released with the npm bundle.
+5. **DSH catalog** — submitted as awesome-dsh-plugin PR #12308; waiting for CI/review and merge.
+6. **GitHub releases** — `v0.1.1` and `v0.2.0` are tagged and released; `v0.2.0` is current.
 7. **ShyPie legacy source** — `plugins/magpie-privacy-gate` is kept only so the folder install
    works until the community package publishes; remove or archive it afterwards.
 

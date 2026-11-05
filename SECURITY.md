@@ -1,7 +1,7 @@
 # Security policy
 
-This repository is a **reference implementation** of a privacy workflow; it is tagged `v0.1.1`, has
-no GitHub release yet and no formal support window. Read [docs/design.md](docs/design.md) for the threat model and
+This repository is a **reference implementation** of a privacy workflow; it is tagged `v0.2.0`, has
+a GitHub release and no formal support window. Read [docs/design.md](docs/design.md) for the threat model and
 [§12 "Known limitations"](docs/design.md#12-known-limitations) for what it does **not** protect
 against. An independent adversarial review, with the list of fixed findings and remaining residuals,
 is in [docs/research/security-review.md](docs/research/security-review.md).

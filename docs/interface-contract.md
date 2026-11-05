@@ -189,7 +189,8 @@ A DSH bundle (Host plugin). Files: `package.json` (with `dsh.bundle.patch`), `co
 Implements the following, verified against the shipped source (every claim carries a `file:line` reference in `research/dsh-hooks.md`):
 
 - Gate 1 — tool ingress: a `tools/post-execute` waterfall listener that redacts every text block of
-  any tool result (read, pwsh, grep, glob, MCP tools) before it is appended, using `pii-core`.
+  any tool result (read, pwsh, grep, glob, MCP tools) before it is appended, using `pii-core`. An
+  error result's `meta` cannot be rewritten by this seam and is a documented local residual.
   Deterministic substitute: `dsh-compaction-tool-result-pruner`. Must return `next()` when it has
   nothing to change (practices.md: waterfall listeners that do not own the decision return next()).
 - Gate 2 — local extraction tools: `privacy_extract` (pdf/doc/auto), `privacy_ocr`, `privacy_scan`.
