@@ -50,7 +50,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | `@shypie_privacy/dsh-privacy-gate` | `0.2.0`, `plugins/dsh-privacy-gate` | npm `0.2.0` published | ✅ egress guard, stable error code and incremental cache live-tested in DSH 0.2.1-rc.5 |
 | `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 43 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
-| marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH entry ready | 🟡 |
+| marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH catalog PR #12308 open | 🟡 |
 
 ## 5. Verification snapshot
 
@@ -101,9 +101,8 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
    installable and its `0.1.1` stage still exists. Both writes need a fresh npm OTP:
    `npm stage reject a9792716-3890-46a2-ae6f-c92e0fcf3aae` and
    `npm deprecate "@shypie_privacy/magpie-privacy-gate@*" "…"`.
-5. **DSH catalog** — the entry is ready; the repository now meets the one-day-age requirement, but
-   the awesome-dsh-plugin PR has not been opened.
-6. **GitHub release** — tag `v0.1.1` exists; no release has been created from it.
+5. **DSH catalog** — submitted as awesome-dsh-plugin PR #12308; waiting for review.
+6. **GitHub releases** — `v0.1.1` exists; `v0.2.0` is tagged and released with the npm bundle.
 7. **ShyPie legacy source** — `plugins/magpie-privacy-gate` is kept only so the folder install
    works until the community package publishes; remove or archive it afterwards.
 
