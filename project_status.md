@@ -48,7 +48,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
 | `@shypie_privacy/dsh-privacy-gate` | `0.1.0`, `plugins/dsh-privacy-gate` | npm published | ✅ live-tested in DSH 0.2.1-rc.5 |
-| `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 33 cases pass |
+| `@magpie-community/middleware-privacy-gate` | `0.1.0` in PR #685, `packages/privacy-gate` on the PR branch | **in-tree, not yet published** | 🟡 waiting for review/merge; 41 cases pass |
 | legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; docs no longer reference it | 🟡 stage `0.1.1` and deprecation need npm OTP |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR open; DSH entry ready | 🟡 |
 
@@ -60,7 +60,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - `local-extract`: 49/49.
 - `dsh-privacy-gate`: 86/86.
 - `e2e`: 11/11.
-- Magpie middleware: **33 cases** in the in-tree `packages/privacy-gate/cases.json`; legacy ShyPie
+- Magpie middleware: **41 cases** in the in-tree `packages/privacy-gate/cases.json`; legacy ShyPie
   harness has 58 checks that predate the six site-scoping regressions.
 
 `node tests/run-all.mjs` covers the ShyPie suites.
@@ -80,7 +80,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 ## 6. Open items / blockers
 
 1. **Magpie PR #685** — open, awaiting re-review/merge. The in-tree package has the site-scoped
-   signature exemption, 33 cases, updated README, and is rebased on current `main` (`9db4a85`).
+   signature/role/type exemption, newest-first text budget, linear blob scan, 41 cases, and is rebased on current `main` (`a51ffb7`).
 2. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
    yet; it publishes only after the PR merges through the community workflow.
 3. **Legacy npm cleanup** — the external package `@shypie_privacy/magpie-privacy-gate` is still
