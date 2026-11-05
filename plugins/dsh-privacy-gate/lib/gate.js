@@ -5,8 +5,9 @@
  *   Gate 1  tools/post-execute  (waterfall)  — redact every tool result before
  *           the loop appends `tool/result`; block binary payloads and
  *           unmaskable media; `next()` when nothing changes.
- *   Gate 3  agent/pre-step      (waterfall)  — redact user text and reject
- *           attachment-bearing steps before any request exists.
+ *   Gate 3  agent/pre-step      (waterfall)  — redact user text, read an
+ *           attached image with the local extractor and substitute masked text,
+ *           and reject a step whose attachment cannot be read locally.
  *   Guards  ctx.tools.guard()   (sync)       — deny `read_image` and binary
  *           document reads outside `allowPaths`.
  *   Extra   tools/ptc-dispatch-log (waterfall) — redact the durable log copy of
@@ -18,6 +19,7 @@
 import { redactBlocks, redactMessages, redactStringTree } from './redact.js'
 import { isBinaryDocPath, isPathAllowed, displayName } from './paths.js'
 import { createEgressGuard } from './egress.js'
+import { convertPromptImages } from './ingest.js'
 
 /** Tool whose result content is an image this gate cannot mask. */
 export const READ_IMAGE_TOOL = 'read_image'
@@ -118,12 +120,17 @@ export function shapePostExecute(deps, exec, result, decision) {
 
 /**
  * Shape one `agent/pre-step` decision.
- * @param {{ config: object, redactor: object|null, state: { broken: Error|null }, audit: object }} deps
+ *
+ * The decision's messages are what the loop appends to the session log, so this
+ * is the only place where an attachment can still become text: converting it
+ * here keeps the image out of the transcript and out of every later request.
+ * @param {{ config: object, redactor: object|null, state: { broken: Error|null }, audit: object,
+ *   readAttachment?: Function, runOcr?: Function, ctx?: object }} deps
  * @param {{ agent?: object }} payload - the waterfall payload.
  * @param {{ kind?: string, messages?: object[] }} decision - the decision returned by `next()`.
- * @returns {object} the decision to return to the loop.
+ * @returns {Promise<object>} the decision to return to the loop.
  */
-export function shapePreStep(deps, payload, decision) {
+export async function shapePreStep(deps, payload, decision) {
   const { redactor, state, audit } = deps
   if (state.broken !== null) return { kind: 'reject' }
   if (decision === null || typeof decision !== 'object') return { kind: 'reject' }
@@ -132,9 +139,24 @@ export function shapePreStep(deps, payload, decision) {
   if (redactor === null || redactor === undefined) return { kind: 'reject' }
 
   try {
-    // blockNonText is always on here: an image/file part cannot be masked, so
-    // the step is rejected (CONTRACT gate 3) rather than forwarded.
-    const out = redactMessages(redactor, decision.messages, { blockNonText: true })
+    const ingested = await convertPromptImages(deps, decision.messages)
+    if (ingested.ok !== true) {
+      audit.record({ kind: 'attachment-blocked', length: 0, count: 0, path_hash: '' })
+      try {
+        deps.ctx?.logger?.warn?.(`privacy-gate: step blocked — the attached image could not be read locally (${ingested.reason})`)
+      } catch {
+        // Logging must never change the verdict.
+      }
+      return { kind: 'reject' }
+    }
+    if (ingested.converted > 0) {
+      audit.record({ kind: 'attachment-ocr', length: ingested.chars, count: ingested.converted, path_hash: '' })
+    }
+
+    // blockNonText stays on: after the conversion an `image` block can only
+    // appear when it is not an image attachment (defensive), and file/audio/
+    // video parts have no local reader at all, so the step is rejected.
+    const out = redactMessages(redactor, ingested.messages, { blockNonText: true })
     if (out.blocked) {
       audit.record({
         kind: 'prompt-blocked',
@@ -144,8 +166,8 @@ export function shapePreStep(deps, payload, decision) {
       })
       return { kind: 'reject' }
     }
-    if (!out.changed) return decision
-    audit.record({ kind: 'prompt', length: out.chars, count: out.tokens.length, path_hash: '' })
+    if (!out.changed && ingested.converted === 0) return decision
+    if (out.changed) audit.record({ kind: 'prompt', length: out.chars, count: out.tokens.length, path_hash: '' })
     // Spread the decision so fields such as `startsRequestSeries` survive
     // (references/practices.md:16).
     return { ...decision, messages: out.messages }
@@ -202,7 +224,7 @@ export function installGates(deps) {
   disposers.push(ctx.on('agent/pre-step', async (payload, next) => {
     const decision = await next()
     if (!gateActive(deps, payload?.agent?.id)) return decision
-    return shapePreStep(deps, payload, decision)
+    return await shapePreStep(deps, payload, decision)
   }))
 
   disposers.push(ctx.on('tools/ptc-dispatch-log', async (dispatch, next) => {

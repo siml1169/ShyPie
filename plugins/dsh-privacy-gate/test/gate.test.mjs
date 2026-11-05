@@ -7,7 +7,7 @@ import {
   shapePreStep,
   shapePtcDispatchLog,
 } from '../lib/gate.js'
-import { FIXTURE, makeFakeCtx, makeFakeRedactor, makeGateDeps } from './helpers.mjs'
+import { FIXTURE, imageBlock, makeFakeCtx, makeFakeIngest, makeFakeRedactor, makeGateDeps } from './helpers.mjs'
 
 const readResult = (text) => ({
   isError: false,
@@ -88,37 +88,102 @@ test('post-execute fails closed when the redactor throws', () => {
   assert.match(decision.feedback[0].text, /redaction failed/)
 })
 
-test('pre-step redacts user text and keeps startsRequestSeries', () => {
+test('pre-step redacts user text and keeps startsRequestSeries', async () => {
   const deps = makeGateDeps()
   const decision = { kind: 'enter', messages: [{ id: 'm1', content: [{ type: 'text', text: `IBAN ${FIXTURE.iban}` }] }] }
-  const shaped = shapePreStep(deps, { agent: {} }, decision)
+  const shaped = await shapePreStep(deps, { agent: {} }, decision)
   assert.equal(shaped.kind, 'enter')
   assert.equal(shaped.messages[0].content[0].text.includes(FIXTURE.iban), false)
   assert.match(shaped.messages[0].content[0].text, /\{\{IBAN_/)
 
-  const withSeries = shapePreStep(deps, {}, { ...decision, startsRequestSeries: true })
+  const withSeries = await shapePreStep(deps, {}, { ...decision, startsRequestSeries: true })
   assert.equal(withSeries.startsRequestSeries, true)
 })
 
-test('pre-step returns the untouched decision (next() semantics) when nothing changed', () => {
+test('pre-step returns the untouched decision (next() semantics) when nothing changed', async () => {
   const deps = makeGateDeps()
   const decision = { kind: 'enter', messages: [{ id: 'm1', content: [{ type: 'text', text: 'hello' }] }] }
-  assert.equal(shapePreStep(deps, {}, decision), decision)
+  assert.equal(await shapePreStep(deps, {}, decision), decision)
 })
 
-test('pre-step rejects a step that would deliver an image or file attachment', () => {
-  const deps = makeGateDeps()
-  for (const type of ['image', 'file']) {
-    const decision = { kind: 'enter', messages: [{ id: 'm1', content: [{ type }] }] }
-    assert.deepEqual(shapePreStep(deps, {}, decision), { kind: 'reject' })
+test('pre-step converts an attached image into masked local OCR text', async () => {
+  const ingest = makeFakeIngest({ ocrText: `Rechnung für ${FIXTURE.email}` })
+  const deps = { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr }
+  const decision = { kind: 'enter', messages: [{ id: 'm1', content: [{ type: 'text', text: 'look at this' }, imageBlock()] }] }
+
+  const shaped = await shapePreStep(deps, {}, decision)
+  assert.equal(shaped.kind, 'enter')
+  const content = shaped.messages[0].content
+  assert.equal(content.length, 2, 'the image block is replaced in place, not dropped')
+  assert.equal(content[1].type, 'text')
+  assert.match(content[1].text, /privacy-gate: local OCR of an attached image\/png "scan\.png"/)
+  assert.match(content[1].text, /engine fake-ocr/)
+  assert.ok(!content[1].text.includes(FIXTURE.email), 'the OCR text is masked before it can reach the request')
+  assert.match(content[1].text, /\{\{EMAIL_/)
+  assert.deepEqual(
+    deps.audit.records.filter((entry) => entry.kind === 'attachment-ocr').map((entry) => entry.count),
+    [1],
+  )
+  assert.deepEqual(ingest.calls.map((call) => call.kind), ['read', 'ocr'])
+})
+
+test('pre-step never mutates the decision messages it was given', async () => {
+  const ingest = makeFakeIngest()
+  const deps = { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr }
+  const block = imageBlock()
+  const decision = { kind: 'enter', messages: [{ id: 'm1', content: [block] }] }
+
+  const shaped = await shapePreStep(deps, {}, decision)
+  assert.equal(decision.messages[0].content[0].type, 'image')
+  assert.notEqual(shaped.messages[0].content[0], block)
+})
+
+test('pre-step rejects when the image cannot be read locally', async () => {
+  const cases = [
+    { name: 'no attachment service', deps: () => makeGateDeps() },
+    { name: 'unreadable object', deps: () => { const ingest = makeFakeIngest({ readError: true }); return { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr } } },
+    { name: 'empty object', deps: () => { const ingest = makeFakeIngest({ empty: true }); return { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr } } },
+    { name: 'OCR failed', deps: () => { const ingest = makeFakeIngest({ ocrResult: { ok: false, blocked: true, reason: 'NO_ENGINE' } }); return { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr } } },
+    { name: 'OCR returned nothing', deps: () => { const ingest = makeFakeIngest(); return { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: async () => ({ ok: true, text: '   ', engine: 'fake' }) } } },
+  ]
+  for (const item of cases) {
+    const deps = item.deps()
+    const decision = { kind: 'enter', messages: [{ id: 'm1', content: [imageBlock()] }] }
+    assert.deepEqual(await shapePreStep(deps, {}, decision), { kind: 'reject' }, item.name)
+    assert.deepEqual(
+      deps.audit.records.filter((entry) => entry.kind === 'attachment-blocked').map((entry) => entry.count),
+      [0],
+      item.name,
+    )
   }
 })
 
-test('pre-step passes an existing reject decision through and fails closed when broken', () => {
+test('pre-step keeps the old behaviour when imageParts is "block"', async () => {
+  const ingest = makeFakeIngest()
+  const deps = {
+    ...makeGateDeps({ config: { imageParts: 'block' } }),
+    readAttachment: ingest.readAttachment,
+    runOcr: ingest.runOcr,
+  }
+  const decision = { kind: 'enter', messages: [{ id: 'm1', content: [imageBlock()] }] }
+  assert.deepEqual(await shapePreStep(deps, {}, decision), { kind: 'reject' })
+  assert.deepEqual(ingest.calls, [], 'nothing is read or spawned when the policy is block')
+})
+
+test('pre-step still rejects a media type the extractor cannot read', async () => {
+  const ingest = makeFakeIngest()
+  const deps = { ...makeGateDeps(), readAttachment: ingest.readAttachment, runOcr: ingest.runOcr }
+  for (const type of ['file', 'audio', 'video']) {
+    const decision = { kind: 'enter', messages: [{ id: 'm1', content: [{ type }] }] }
+    assert.deepEqual(await shapePreStep(deps, {}, decision), { kind: 'reject' }, type)
+  }
+})
+
+test('pre-step passes an existing reject decision through and fails closed when broken', async () => {
   const deps = makeGateDeps()
-  assert.deepEqual(shapePreStep(deps, {}, { kind: 'reject' }), { kind: 'reject' })
+  assert.deepEqual(await shapePreStep(deps, {}, { kind: 'reject' }), { kind: 'reject' })
   const broken = makeGateDeps({ state: { broken: new Error('no core') } })
-  assert.deepEqual(shapePreStep(broken, {}, { kind: 'enter', messages: [] }), { kind: 'reject' })
+  assert.deepEqual(await shapePreStep(broken, {}, { kind: 'enter', messages: [] }), { kind: 'reject' })
 })
 
 test('ptc-dispatch-log redacts the durable log copy and withholds an unmaskable one', () => {

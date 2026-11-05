@@ -108,6 +108,12 @@ export const Config = z.object({
   egressMaxNodes: z.number().step(1).min(1).default(200_000),
   scope: z.string().default('session'),
   sessionsPath: z.string().default(''),
+  ocrEngine: z.string().default('local'),
+  ocrLang: z.string().default(''),
+  imageParts: z.string().default('ocr'),
+  visionProvider: z.string().default(''),
+  visionModel: z.string().default(''),
+  allowAgentDisable: z.boolean().default(false),
 })
 
 /**
@@ -274,6 +280,21 @@ export async function apply(ctx, config) {
     pii: redaction.pii ?? null,
     state: { broken: redaction.error ?? null },
     audit,
+    // Prompt attachments are opaque references: only the host's attachment service can
+    // read their bytes. `ctx.get` keeps this optional — without the service the step is
+    // rejected instead of the entry failing to activate (see lib/ingest.js).
+    readAttachment: (attachment, signal) => {
+      const store = typeof ctx.get === 'function' ? ctx.get('attachments') : undefined
+      if (store === undefined || store === null || typeof store.readImage !== 'function') {
+        throw new Error('privacy-gate: the attachment service is unavailable')
+      }
+      return store.readImage(attachment, signal)
+    },
+    runOcr: (options) => runExtractCli({
+      ...options,
+      cliPath: deps.config.extractCli,
+      nodePath: process.execPath,
+    }),
     sessions: createSessionRegistry({
       file: resolved.sessionsPath,
       scope: resolved.scope,

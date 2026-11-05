@@ -17,16 +17,29 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, writeFile
 import { dirname, join } from 'node:path'
 
 /** On-disk format version; a mismatch starts a fresh record. */
-export const STORE_VERSION = 1
+export const STORE_VERSION = 2
 
 /** Scopes a deployment may choose. */
 export const SCOPES = Object.freeze(['session', 'system'])
 
-const SESSION_PREFIX = 'session-'
+/**
+ * DSH names a session's directory after its `SessionId`, so the directory name
+ * *is* the id — older profiles used a bare uuid, current ones use `session-<uuid>`.
+ * Normalizing at lookup keeps a record readable when the naming changes again.
+ * @param {string} id
+ * @returns {string[]} the id plus its two alternate spellings, deduplicated.
+ */
+function idForms(id) {
+  const forms = [id]
+  if (id.startsWith('session-')) forms.push(id.slice('session-'.length))
+  else forms.push(`session-${id}`)
+  return forms
+}
 
 /**
  * Read the ids of the sessions that already exist on disk.
- * Layout: `<sessionsDir>/<project>/session-<id>/session.v4.jsonl[.zstd]`.
+ * Layout: `<sessionsDir>/<project>/<session-id>/session.v4.jsonl[.zstd]`, where the
+ * directory name is the session id as the harness spells it.
  * Unreadable directories yield an empty list: a missing snapshot only means no session is
  * recorded as legacy, never that the gate is disabled.
  * @param {string} sessionsDir
@@ -51,7 +64,7 @@ export function listExistingSessionIds(sessionsDir, io = { readdirSync }) {
       continue
     }
     for (const entry of entries) {
-      if (entry.isDirectory() && entry.name.startsWith(SESSION_PREFIX)) ids.push(entry.name.slice(SESSION_PREFIX.length))
+      if (entry.isDirectory()) ids.push(entry.name)
     }
   }
   return ids
@@ -134,7 +147,9 @@ export function createSessionRegistry({ file, scope = 'session', sessionsDir = '
       if (typeof sessionId !== 'string' || sessionId.length === 0) return false
       initialize()
       const current = read()
-      if (Object.hasOwn(current.sessions, sessionId)) return current.sessions[sessionId] === true
+      for (const form of idForms(sessionId)) {
+        if (Object.hasOwn(current.sessions, form)) return current.sessions[form] === true
+      }
       // A session first seen after activation is protected.
       return current.initializedAt !== null
     },
@@ -143,18 +158,23 @@ export function createSessionRegistry({ file, scope = 'session', sessionsDir = '
       if (typeof sessionId !== 'string' || sessionId.length === 0) return false
       initialize()
       const current = read()
-      write({ ...current, sessions: { ...current.sessions, [sessionId]: enabled === true } })
+      const next = { ...current.sessions }
+      // Drop alternate spellings so one session cannot hold two verdicts.
+      for (const form of idForms(sessionId)) delete next[form]
+      next[sessionId] = enabled === true
+      write({ ...current, sessions: next })
       return true
     },
     /** @param {string|undefined} sessionId */
     status(sessionId) {
       const current = read()
+      const forms = typeof sessionId === 'string' ? idForms(sessionId) : []
       return {
         scope: effectiveScope,
         initializedAt: current.initializedAt,
         sessionId: typeof sessionId === 'string' ? sessionId : null,
         enabled: this.isEnabled(sessionId),
-        explicit: typeof sessionId === 'string' && Object.hasOwn(current.sessions, sessionId),
+        explicit: forms.some((form) => Object.hasOwn(current.sessions, form)),
       }
     },
   }

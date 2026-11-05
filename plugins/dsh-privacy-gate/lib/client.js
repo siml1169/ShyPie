@@ -31,6 +31,7 @@ window.__ModuleLoader__.load({
 
     const SCOPE_VALUES = ['session', 'system']
     const OCR_VALUES = ['local', 'vision', 'auto']
+const IMAGE_PART_VALUES = ['ocr', 'block']
 
     const S = {
       root: { display: 'flex', flexDirection: 'column', gap: '14px', maxWidth: '720px' },
@@ -88,6 +89,7 @@ window.__ModuleLoader__.load({
         allowPaths: Array.isArray(source.allowPaths) ? source.allowPaths.join('\n') : '',
         extractCli: String(source.extractCli ?? ''),
         ocrEngine: String(source.ocrEngine ?? 'local'),
+        imageParts: String(source.imageParts ?? 'ocr'),
         visionProvider: String(source.visionProvider ?? ''),
         visionModel: String(source.visionModel ?? ''),
         allowAgentDisable: source.allowAgentDisable === true,
@@ -101,6 +103,7 @@ window.__ModuleLoader__.load({
       if (draft.scope !== initial.scope) patch.scope = draft.scope
       if (draft.extractCli !== initial.extractCli) patch.extractCli = draft.extractCli
       if (draft.ocrEngine !== initial.ocrEngine) patch.ocrEngine = draft.ocrEngine
+      if (draft.imageParts !== initial.imageParts) patch.imageParts = draft.imageParts
       if (draft.visionProvider !== initial.visionProvider) patch.visionProvider = draft.visionProvider
       if (draft.visionModel !== initial.visionModel) patch.visionModel = draft.visionModel
       if (draft.allowAgentDisable !== initial.allowAgentDisable) patch.allowAgentDisable = draft.allowAgentDisable
@@ -313,6 +316,19 @@ window.__ModuleLoader__.load({
         h(
           Field,
           {
+            id: 'privacy-image-parts',
+            label: 'Attachments',
+            hint: 'ocr reads an attached image with the local engine and sends the masked text instead of the bytes; block refuses the step. Either way nothing leaves the machine.',
+          },
+          h(
+            'select',
+            { id: 'privacy-image-parts', style: S.input, value: draft.imageParts, onChange: update('imageParts'), disabled: busy },
+            ...IMAGE_PART_VALUES.map((option) => h('option', { key: option, value: option }, option)),
+          ),
+        ),
+        h(
+          Field,
+          {
             id: 'privacy-ocr',
             label: 'OCR engine',
             hint: 'auto uses the first available local engine — Windows OCR (winrt-ocr) on this machine. Nothing leaves the machine in any mode.',
@@ -331,7 +347,8 @@ window.__ModuleLoader__.load({
           h(
             'ol',
             { style: { ...S.hint, margin: 0, paddingLeft: '18px' } },
-            h('li', null, 'Put the document under one of the allowed paths above, or add its folder.'),
+            h('li', null, 'An image you attach to a message is read automatically: the gate OCRs it locally, masks the text and sends that instead of the pixels (Attachments → ocr above). A session started before the gate was on keeps its old history — start a new session.'),
+            h('li', null, 'For a document on disk, put it under one of the allowed paths above, or add its folder.'),
             h('li', null, 'In the conversation, ask the agent: “run privacy_ocr on <path> and summarize it”.'),
             h('li', null, 'The tool returns placeholder-masked text as the tool result; the agent reads that result as part of the prompt — you do not paste it.'),
             h('li', null, 'Nothing is sent if the local engine cannot read the file: the tool fails closed instead of returning bytes.'),

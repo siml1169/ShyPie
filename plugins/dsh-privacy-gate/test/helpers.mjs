@@ -176,6 +176,8 @@ export function makeGateDeps(overrides = {}) {
       artifactDir: 'C:/synthetic/artifacts',
       toolTimeoutMs: 1000,
       maxExtractChars: 1000,
+      imageParts: 'ocr',
+      ocrLang: '',
       ...overrides.config,
     },
     redactor: Object.hasOwn(overrides, 'redactor') ? overrides.redactor : makeFakeRedactor(),
@@ -189,5 +191,48 @@ export function makeGateDeps(overrides = {}) {
       records,
     },
     hashPath: (path) => `hash:${String(path).length}`,
+    ...(Object.hasOwn(overrides, 'readAttachment') ? { readAttachment: overrides.readAttachment } : {}),
+    ...(Object.hasOwn(overrides, 'runOcr') ? { runOcr: overrides.runOcr } : {}),
+  }
+}
+
+/**
+ * Attachment + extractor stand-ins for the attachment-ingestion tests: a fake
+ * attachment service that returns known bytes, and a fake OCR run that returns
+ * fixed text (or a failure) without spawning anything.
+ */
+export function makeFakeIngest(options = {}) {
+  const bytes = options.bytes ?? new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0x00, 0x01])
+  const calls = []
+  return {
+    bytes,
+    calls,
+    readAttachment: async (attachment) => {
+      calls.push({ kind: 'read', id: attachment?.attachmentId })
+      if (options.readError === true) throw new Error('attachment verification failed')
+      if (options.empty === true) return { ref: attachment, data: new Uint8Array(0) }
+      return { ref: attachment, data: bytes }
+    },
+    runOcr: async (invocation) => {
+      calls.push({ kind: 'ocr', mode: invocation.mode })
+      if (options.ocrResult !== undefined) return options.ocrResult
+      return { ok: true, mode: 'ocr', engine: 'fake-ocr', text: options.ocrText ?? 'Rechnung 42', warnings: [] }
+    },
+  }
+}
+
+/** One `image` content block with a synthetic attachment reference. */
+export function imageBlock(overrides = {}) {
+  return {
+    type: 'image',
+    attachment: {
+      attachmentId: 'att_fake0000000001',
+      mediaType: 'image/png',
+      bytes: 11,
+      width: 10,
+      height: 10,
+      name: 'scan.png',
+      ...overrides,
+    },
   }
 }

@@ -118,14 +118,14 @@ test('the llm/stream listener returns a terminal error stream before next', asyn
   assert.equal(JSON.stringify(audit.records[0]).includes('BLOB'), false)
 })
 
-test('a media rejection points at the local extraction path', async () => {
+test('a media rejection explains that the attachment is already in the log', async () => {
   const guard = createEgressGuard(deps())
   const stream = guard(request([{ role: 'user', content: [{ type: 'image' }] }]), () => {})
   const chunks = []
   for await (const chunk of stream) chunks.push(chunk)
   assert.equal(
     chunks[0].reason.failure.message,
-    'privacy-gate: egress blocked (MEDIA_IMAGE); an attachment cannot be masked locally — extract it with privacy_ocr and send the text',
+    "privacy-gate: egress blocked (MEDIA_IMAGE); an attachment is already in this session log — a newly attached image is OCR'd locally before it is logged, so start a new session and attach it again",
   )
 })
 

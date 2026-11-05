@@ -85,7 +85,7 @@ durable fix is to redact at the point of ingestion.
 | # | Threat | Where it happens today | Control in this design |
 |---|---|---|---|
 | T1 | **Provider sees raw PII in text** | Magpie masks text — covered, but only for agents routed through Magpie | DSH gate masks at ingestion; Magpie mask remains as second layer |
-| T2 | **Provider sees the document as an image/PDF** | `read_image`/attachment puts a raster in context; Magpie cannot mask it | `read_image` + binary read guards; local extraction tools; Magpie middleware rejects non-text parts |
+| T2 | **Provider sees the document as an image/PDF** | an attached image becomes an `image` content block; Magpie cannot mask it | Gate 3 reads the attachment locally, OCRs it and substitutes redacted text (rejecting the step when that fails); `read_image` + binary read guards; Magpie middleware rejects non-text parts as the second layer |
 | T3 | **Provider sees a scan with no text layer** | OCR is skipped or done by a cloud service | local-only OCR adapters (Windows WinRT, offline) and `NO_LOCAL_OCR` **block** when no engine exists |
 | T4 | **Plaintext persists locally** (session log, spill, export, journal) | unredacted tool results appended forever | redaction happens *before* append for document/tool ingress; user-typed prompts are redacted in the model-visible log but the raw prompt is recorded by the harness before any supported seam — **named residual** (`research/dsh-hooks.md`) |
 | T5 | **A bypass tool channel** (`pwsh`, MCP tools, web fetch) | any tool output enters context unredacted | Gate 1 is tool-agnostic: every `tools/post-execute` result is redacted |
@@ -290,8 +290,14 @@ proceed, and no bytes enter the log.
 
 **Gate 3 — user and attachment ingress.** User text is redacted in the model-visible projection
 (`agent/pre-step` rewrites `decision.messages`, which the loop then appends as `user/message`), and
-image attachment blocks are removed from that same decision. Two honest qualifications, both taken
-from the source rather than assumed:
+an attached image is replaced by locally OCR'd, redacted text in that same decision
+(`lib/ingest.js`): the block references an opaque content-addressed object, so the gate reads it
+through `ctx.attachments.readImage`, runs the local extractor in `ocr` mode, and substitutes one
+text block for the image block. That seam is the last one where this is possible — the request is a
+frozen fold of the log, so a later conversion would only be able to reject. When the bytes cannot be
+read locally (no attachment service, failed verification, missing/failing extractor, empty OCR
+result, a BLOB-shaped result, or `imageParts: 'block'`) the step is rejected instead. Two honest
+qualifications, both taken from the source rather than assumed:
 
 - The harness durably records the raw prompt (`agent/inbox/spliced`) *before* any supported plugin
   seam runs, and `Session.append` has no pre-append hook. So the raw text the user typed stays in
@@ -300,7 +306,7 @@ from the source rather than assumed:
   design says so instead of claiming a guarantee the platform does not offer; the phase-3 fix is a
   client-side redactor at submit time.
 - `read_image` can be denied or blocked but not converted: its result carries an image block, so the
-  only privacy-safe action is refusal.
+  only privacy-safe action is refusal (the prompt-side OCR above sees attachments, not tool reads).
 
 **Gate 4 — final egress.** A prepended, global `llm/stream` listener inspects the exact final
 request before adapter dispatch and returns a terminal error stream if it contains image/file/audio/video
@@ -496,7 +502,7 @@ node tests/run-all.mjs                   # every suite, one summary
 | Redaction cost | `packages/pii-core/test/perf.test.js`, `test/hardening.test.js` | 50,125-char synthetic doc, 2,133 hits → **11.5 ms best / 12.3 ms median** warm (budget 50 ms); clean 50k doc 2.5 ms; adversarial 300k-digit run **40 ms** (was 380 ms before the card-detector fast path), 1M digits 110 ms |
 | PDF text extraction, Office extraction, OCR, every reachable block reason | `packages/local-extract/test/` | **49/49 pass**; text layer 93 chars; scan → `winrt-ocr`, ~0.65–0.78 s for 2 pages, 2.9–3.3 s full CLI; all 8 block reasons measured |
 | DSH gate: redacts results, `next()` unchanged, BLOB block, guards, fail-closed egress guard with stable error code and incremental scan, 4 tools, real vendored core | `plugins/dsh-privacy-gate/test/` | **100/100 pass**; `node --check` clean on 23 files; activation check → 4 listeners, 1 guard, 4 tools registered |
-| DSH Gate 3: model-visible user text masked, attachment steps rejected, raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; live DSH 0.2.1-rc.5 headless session exercised manually 2026-11-03 (GUI profile not exercised) |
+| DSH Gate 3: model-visible user text masked, an attached image replaced by masked local OCR text (or the step rejected), raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; attachment → text path exercised against real attachment bytes and the real `winrt-ocr` engine 2026-11-05 (live GUI turn not exercised) |
 | Magpie middleware: image/file/audio rejection, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `plugins/magpie-privacy-gate/test/harness.mjs` | **58/58 pass** in `node:vm` with only `console`; 15 forbidden-token checks (`fetch`/`require`/timers/`process`/`Buffer`/`module` all absent) |
 | End-to-end: synthetic invoice → local text → placeholders → request body has no plaintext → gateway allow/reject → reply restores | `tests/e2e/` | **11/11 pass**, incl. the blocked-scan path and the OS-OCR path |
 | The bundle installs and is live in a real DSH profile | — | **verified manually 2026-11-03**: npm install into the `headless` and `desktop` profiles; two-turn DeepSeek session and a two-turn Copilot `gpt-6.1-sol` session through the live gateway; temporary model-allowlist block rejected a turn |

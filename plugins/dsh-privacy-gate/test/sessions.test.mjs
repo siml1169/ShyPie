@@ -9,16 +9,18 @@ import { createSessionRegistry, listExistingSessionIds } from '../lib/sessions.j
 function workspace() {
   const dir = mkdtempSync(join(tmpdir(), 'privacy-scope-'))
   const sessionsDir = join(dir, 'sessions')
+  // Both id spellings appear in real profiles: old sessions use a bare uuid, current
+  // ones `session-<uuid>` (the directory name *is* the SessionId).
   mkdirSync(join(sessionsDir, '--project--', 'session-old-1'), { recursive: true })
-  mkdirSync(join(sessionsDir, '--project--', 'session-old-2'), { recursive: true })
+  mkdirSync(join(sessionsDir, '--project--', 'old-2'), { recursive: true })
   mkdirSync(join(sessionsDir, '--project--', 'not-a-session'), { recursive: true })
   return { dir, sessionsDir, file: join(dir, 'privacy', 'sessions.json') }
 }
 
-test('listExistingSessionIds reads only session-* directories', () => {
+test('listExistingSessionIds returns the directory names as the session ids', () => {
   const { dir, sessionsDir } = workspace()
   try {
-    assert.deepEqual(listExistingSessionIds(sessionsDir).sort(), ['old-1', 'old-2'])
+    assert.deepEqual(listExistingSessionIds(sessionsDir).sort(), ['not-a-session', 'old-2', 'session-old-1'])
     assert.deepEqual(listExistingSessionIds(join(dir, 'missing')), [])
     assert.deepEqual(listExistingSessionIds(''), [])
   } finally {
@@ -44,6 +46,7 @@ test('session scope leaves pre-activation sessions alone and protects new ones',
   try {
     const registry = createSessionRegistry({ file, scope: 'session', sessionsDir, now: () => 1234 })
     assert.equal(registry.isEnabled('old-1'), false)
+    assert.equal(registry.isEnabled('session-old-1'), false, 'either spelling resolves to the same session')
     assert.equal(registry.isEnabled('old-2'), false)
     assert.equal(registry.isEnabled('brand-new'), true)
     assert.equal(registry.isEnabled(undefined), false)
@@ -51,9 +54,25 @@ test('session scope leaves pre-activation sessions alone and protects new ones',
     assert.equal(registry.status('brand-new').explicit, false)
 
     const stored = JSON.parse(readFileSync(file, 'utf8'))
-    assert.equal(stored.version, 1)
+    assert.equal(stored.version, 2)
     assert.equal(stored.initializedAt, 1234)
-    assert.deepEqual(stored.sessions, { 'old-1': false, 'old-2': false })
+    assert.deepEqual(stored.sessions, { 'not-a-session': false, 'old-2': false, 'session-old-1': false })
+  } finally {
+    rmSync(dir, { recursive: true, force: true })
+  }
+})
+
+test('a version-1 record is discarded and re-snapshotted with the real ids', () => {
+  const { dir, sessionsDir, file } = workspace()
+  try {
+    mkdirSync(join(dir, 'privacy'), { recursive: true })
+    // v1 stripped the `session-` prefix, so legacy sessions never matched a lookup.
+    writeFileSync(file, JSON.stringify({ version: 1, initializedAt: 1, sessions: { 'old-1': false } }), 'utf8')
+    const registry = createSessionRegistry({ file, scope: 'session', sessionsDir, now: () => 99 })
+    assert.equal(registry.isEnabled('session-old-1'), false)
+    const stored = JSON.parse(readFileSync(file, 'utf8'))
+    assert.equal(stored.version, 2)
+    assert.equal(stored.initializedAt, 99)
   } finally {
     rmSync(dir, { recursive: true, force: true })
   }

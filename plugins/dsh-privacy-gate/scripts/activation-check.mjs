@@ -37,6 +37,7 @@ if (validated.allowPaths.join(',') !== '') throw new Error('Config did not prese
 const listeners = new Map()
 const guards = []
 const tools = []
+const injections = []
 const ctx = {
   logger: { warn() {}, info() {}, error() {} },
   on(event, callback) {
@@ -44,6 +45,23 @@ const ctx = {
     list.push(callback)
     listeners.set(event, list)
     return () => {}
+  },
+  // The real host resolves `webServer` in a child scope and `attachments` on demand;
+  // the check records the child injections and answers no optional service.
+  inject(deps, callback) {
+    injections.push(deps)
+    return Promise.resolve(
+      callback({
+        webServer: { register() { return () => {} } },
+        effect(fn) {
+          fn()
+          return () => {}
+        },
+      }),
+    )
+  },
+  get() {
+    return undefined
   },
   tools: {
     guard(fn) {
@@ -87,8 +105,9 @@ for (const event of expectedListeners) {
   if ((listeners.get(event) ?? []).length !== 1) throw new Error(`missing listener for ${event}`)
 }
 if (guards.length !== 1) throw new Error(`expected one tool guard, got ${guards.length}`)
+if (injections.length !== 1) throw new Error(`expected one child injection (webServer), got ${injections.length}`)
 const names = tools.map((tool) => tool.name).sort()
-if (names.join(',') !== 'privacy_extract,privacy_ocr,privacy_rehydrate,privacy_scan') {
+if (names.join(',') !== 'privacy_extract,privacy_ocr,privacy_rehydrate,privacy_scan,privacy_session') {
   throw new Error(`unexpected tools: ${names.join(',')}`)
 }
 console.log(`activation-check: ok — listeners ${expectedListeners.length}, guards ${guards.length}, tools ${names.length}`)

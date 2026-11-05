@@ -85,6 +85,10 @@ flowchart TB
 - **Local conversion only.** Text layers use `pdftotext`; scans use `pdftoppm` plus a local OCR
   adapter (on Windows, the built-in `Windows.Media.Ocr` engine — no install, no network). If no
   local engine exists the call is **blocked** (`NO_LOCAL_OCR`), never sent to a cloud converter.
+- **Attachments are converted, not forwarded.** An image attached to a message is read through the
+  harness's attachment store, OCR'd locally and replaced by masked text *before* the message is
+  logged — the step is rejected when the bytes cannot be read (no extractor, failed verification,
+  empty OCR result, `imageParts: 'block'`).
 - **Un-maskable payloads are rejected**: base64/hex/`data:`-encoded documents (contiguous, line-
   wrapped or dump-formatted), image/file/audio parts to non-local providers, unknown binaries,
   encrypted PDFs.
@@ -141,7 +145,7 @@ Measured on the reference machine (Windows 11, Node 24, no network):
 |---|---|
 | `pii-core` | 61 tests, 60 pass (1 platform skip); 50,125-char doc with 2,133 hits redacts in 11.5 ms; 300k-digit run 40 ms |
 | `local-extract` | 49/49; text PDF, Office, local OCR, and all documented block reasons |
-| `dsh-privacy-gate` | 100/100; activation check registers 4 listeners, 1 guard, 4 tools |
+| `dsh-privacy-gate` | 146/146; activation check registers 3 listeners, 1 guard, 5 tools; an attached image is OCR'd end-to-end against real `winrt-ocr` in 2.5 s |
 | `magpie-privacy-gate` | 58/58 in a `node:vm` sandbox with only `console` (proves the moejs constraint) |
 | `e2e` | 11/11 — synthetic invoice → local text → placeholders → gateway → mock vendor, with zero plaintext on the wire |
 

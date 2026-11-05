@@ -30,6 +30,8 @@ export const CONFIG_KEYS = Object.freeze([
   'sessionsPath',
   'allowAgentDisable',
   'ocrEngine',
+  'ocrLang',
+  'imageParts',
   'visionProvider',
   'visionModel',
 ])
@@ -58,6 +60,12 @@ export const DEFAULTS = Object.freeze({
   // call for images the local engines cannot read, and is configuration-only for now.
   allowAgentDisable: false,
   ocrEngine: 'local',
+  ocrLang: '',
+  // What a prompt attachment (an `image` content block) becomes: 'ocr' reads it
+  // with the local extractor and sends masked text, 'block' rejects the step.
+  // 'ocr' is the default because blocking a scan the machine could read defeats
+  // the point of the gate; extraction failure still blocks (see lib/ingest.js).
+  imageParts: 'ocr',
   visionProvider: '',
   visionModel: '',
 })
@@ -135,12 +143,15 @@ export function resolveConfig(raw = {}, base = {}) {
     sessionsPath: typeof (raw.sessionsPath ?? '') === 'string' ? (raw.sessionsPath ?? '') : fail('sessionsPath must be a string'),
     allowAgentDisable: raw.allowAgentDisable ?? DEFAULTS.allowAgentDisable,
     ocrEngine: raw.ocrEngine ?? DEFAULTS.ocrEngine,
+    ocrLang: typeof (raw.ocrLang ?? '') === 'string' ? (raw.ocrLang ?? '') : fail('ocrLang must be a string'),
+    imageParts: raw.imageParts ?? DEFAULTS.imageParts,
     visionProvider: typeof (raw.visionProvider ?? '') === 'string' ? (raw.visionProvider ?? '') : fail('visionProvider must be a string'),
     visionModel: typeof (raw.visionModel ?? '') === 'string' ? (raw.visionModel ?? '') : fail('visionModel must be a string'),
   }
 
   if (resolved.scope !== 'session' && resolved.scope !== 'system') fail('scope must be "session" or "system"')
   if (!['local', 'vision', 'auto'].includes(resolved.ocrEngine)) fail('ocrEngine must be "local", "vision" or "auto"')
+  if (resolved.imageParts !== 'ocr' && resolved.imageParts !== 'block') fail('imageParts must be "ocr" or "block"')
   if (typeof resolved.allowAgentDisable !== 'boolean') fail('allowAgentDisable must be a boolean')
 
   if (typeof resolved.blockNonTextResults !== 'boolean') fail('blockNonTextResults must be a boolean')

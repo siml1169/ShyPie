@@ -13,7 +13,7 @@ see it: anything un-maskable or uninspectable fails the turn.
 |---|---|---|
 | 1 — tool ingress | `tools/post-execute` (waterfall) | Every tool result's text is masked with `pii-core` before the loop appends `tool/result`. A success result is sanitized through `value` so the logged `meta` is re-derived from masked data. Binary payloads (`BLOB`) and image/file content are **blocked**, never forwarded. `next()` is returned untouched when nothing changed. |
 | 2 — local extraction | `privacy_extract`, `privacy_ocr`, `privacy_scan` | PDF/Office/image text is produced by the local CLI (`packages/local-extract/cli.js`), masked here, and only then returned. A blocked conversion (`NO_LOCAL_OCR`, `NOT_A_DOCUMENT`, …) is a tool **error**, never content. |
-| 3 — user ingress | `agent/pre-step` (waterfall) | User text is masked and the masked messages are what the loop appends as `user/message`; a step carrying an image or file part is **rejected**. |
+| 3 — user ingress | `agent/pre-step` (waterfall) | User text is masked and the masked messages are what the loop appends as `user/message`. An attached image is **read by the local OCR engine and replaced by masked text** (`imageParts: 'ocr'`, the default); when it cannot be read the whole step is **rejected**. `file`/`audio`/`video` parts are always rejected. |
 | Guards | `ctx.tools.guard()` | Denies `read_image` outright, and denies `read` of binary/document extensions outside `allowPaths`. |
 | Round trip | `privacy_rehydrate` | Resolves placeholders **inside the tool**, writes the plaintext to a local artifact, and returns only `{ path, replaced, kinds }`. |
 | Extra (defensive) | `tools/ptc-dispatch-log` | Masks the durable log copy of `run_code` sub-dispatches. |
@@ -27,6 +27,7 @@ lib/config.js        pure config resolution (frozen, unknown keys fail)
 lib/paths.js         pure path predicates used by the guard
 lib/redact.js        pure content/message/value masking over the pii-core API
 lib/gate.js          the gates as pure decision shapers + installGates()
+lib/ingest.js        reads a prompt attachment and replaces it with masked local OCR text
 lib/egress.js        final llm/stream egress guard (fail-closed before the adapter)
 lib/tools.js         the four ToolDefinitions (raw register() form)
 lib/extract.js       local-extract CLI adapter (spawn, no shell, no network)
@@ -79,9 +80,38 @@ egressMaxChars: 2000000      # reject instead of passing an uninspectable reques
 egressMaxNodes: 200000
 scope: session               # session (default) | system — see below
 sessionsPath: ''             # defaults to ~/.dsh/privacy/sessions.json
+ocrEngine: local             # local | vision | auto (vision is configuration-only today)
+ocrLang: ''                  # optional BCP-47-ish hint passed to the extractor (--lang)
+imageParts: ocr              # ocr (default) | block — what an attached image becomes
 ```
 
 There is no `failClosed` switch: the gate always fails closed.
+
+### Attached images are read locally, not blocked
+
+An image you attach to a message reaches the agent as an `image` content block that references an
+opaque, content-addressed object (`ctx.attachments`). The gate reads those bytes, runs the **local**
+extractor in `ocr` mode (Windows OCR on this machine), masks the text with `pii-core`, and
+substitutes one text block for the image block:
+
+```
+[privacy-gate: local OCR of an attached image/jpeg "scan.jpg", 113623 bytes, engine winrt-ocr]
+
+Rechnung {{IBAN_...}} …
+```
+
+Why `agent/pre-step` and not the egress guard: the loop appends the decision's messages to the
+session log (`dsh-agent-loop` `turn()`), so converting there keeps the pixels out of the transcript
+and out of every later request. After that seam the request is a frozen fold of the log and can only
+be rejected, never rewritten.
+
+Fail-closed cases (the step is rejected, nothing is sent): no attachment service, an attachment that
+fails verification, an extractor that is missing or fails, OCR that returns nothing, a BLOB-shaped
+result, and `imageParts: 'block'`. `file`/`audio`/`video` parts have no local reader and are always
+rejected.
+
+Trade-off: the transcript keeps the OCR text, not the image. That is the point of the gate — if you
+need the model to *see* a picture, send it to a model you have declared local.
 
 ### Scope — per session by default
 
@@ -99,11 +129,20 @@ The record holds session ids and booleans only — no content, no paths, no per-
 and is written atomically with mode 0600. A missing or corrupt record re-snapshots the legacy
 sessions, which can only widen the ungated set; it never narrows it silently.
 
+**Session ids have two spellings.** The harness names a session's directory after its `SessionId`, so
+the directory name *is* the id: current profiles use `session-<uuid>`, older ones a bare `<uuid>`.
+The snapshot stores the name as found and every lookup tries both spellings, so one session cannot
+hold two verdicts. Record `version: 1` stripped the prefix and therefore never matched a lookup —
+legacy sessions were gated despite being recorded as off — so a version-1 record is discarded and
+re-snapshotted on first use (per-session toggles from that record are lost, and the snapshot can only
+make a session ungated, never gated).
+
 | seam | session identity |
 |---|---|
 | `tools/post-execute`, `ctx.tools.guard` | `exec.agent.id` (`SessionId`) |
 | `agent/pre-step` | `payload.agent.id` (`Agent.id` is the session id) |
 | `llm/stream` | `request.sessionId`; absent on compaction and session-title calls, which `scope: session` leaves alone |
+| settings route / `privacy_session` | whatever id the client or the tool passes; both spellings resolve to the same row |
 
 ### Settings page — own route, not a settings namespace
 
@@ -211,8 +250,8 @@ There is no override, by design. Recovering means leaving the poisoned history b
   the gate never rewrites existing events.
 
 If the rejection reason is not `PII`/`BLOB`, the hint on the error names the actual remedy
-(`MEDIA_*` → extract with `privacy_ocr`, `PROVIDER`/`MODEL` → allowlist, `LIMIT_*` → raise the
-budget).
+(`MEDIA_*` → the attachment is already logged, attach it in a new session, `PROVIDER`/`MODEL` →
+allowlist, `LIMIT_*` → raise the budget).
 
 ## Troubleshooting the extractor
 
@@ -262,7 +301,7 @@ prompt-injected instruction must not be able to turn the gate off by itself. It 
 ## Tests
 
 ```
-node --test                     # 100 tests, no network, synthetic fixtures only
+node --test                     # 146 tests, no network, synthetic fixtures only
 node scripts/vendor-core.mjs --check   # vendor copy is current
 node scripts/activation-check.mjs      # needs @deepseek-ai/schemastery resolvable
 ```
@@ -285,8 +324,13 @@ contract shape.
    `tools/post-execute` (only a successful result can be re-derived through
    `value`). A third-party tool that puts plaintext into an error `meta` keeps it
    in the local log.
-4. **`read_image` is denied, not converted.** Image content cannot be masked, so
-   the only fail-closed choice is refusal; use `privacy_ocr` for text.
-5. **`privacy_rehydrate` is session-scoped.** `restore()` only resolves values
+4. **`read_image` is denied, not converted.** A *tool* that wants to look at a
+   file cannot be served by the prompt-side OCR (which only sees the user's
+   attachments); use `privacy_ocr` for text.
+5. **An OCR'd attachment loses its layout.** The model gets the extracted text
+   (masked), not the picture: tables, stamps and handwriting may be misread, and
+   nothing re-attaches the image later. Send the document to a model declared
+   local if the bytes themselves matter.
+6. **`privacy_rehydrate` is session-scoped.** `restore()` only resolves values
    masked by that same redactor instance; cross-restart restore would need
    `pii-core`'s encrypted vault, which this bundle does not wire up.

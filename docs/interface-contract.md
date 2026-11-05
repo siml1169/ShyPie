@@ -199,15 +199,21 @@ Implements the following, verified against the shipped source (every claim carri
   They shell out to `packages/local-extract/cli.js` (path configurable), redact the text with
   `pii-core` before returning, and surface a blocked result as a tool error, never as content.
 - Gate 3 — user/attachment ingress: redact `user/message` text in the `agent/pre-step` waterfall
-  (those messages are what the loop appends) and reject attachment blocks. The harness records the
-  raw submitted prompt before this seam; that residual is documented, not hidden.
+  (those messages are what the loop appends), and replace an `image` content block with locally
+  OCR'd, redacted text: the block references an opaque attachment, which the gate reads through the
+  host attachment service (`ctx.attachments.readImage`), runs through the local extractor, and masks
+  before substituting a single text block. The step is rejected — never forwarded with the image —
+  when the bytes cannot be read locally (missing service, failed verification, missing/failing
+  extractor, empty OCR result, BLOB-shaped result, or `imageParts: 'block'`); `file`/`audio`/`video`
+  parts are always rejected. The harness records the raw submitted prompt before this seam; that
+  residual is documented, not hidden.
 - Guards: deny `read_image` and `read` of binary/document extensions outside `allowPaths`; deny any
   tool result carrying a `BLOB` hit (base64/PDF/zip) — that is the "block the data transfer" rule.
 - `privacy_rehydrate(text, artifactPath)`: resolves placeholders **inside the tool** into a local
   artifact and returns only `{ path, replaced, kinds }` — never the plaintext values. This is the
   round-trip rule: the model can act on placeholders without seeing values.
 - Config via schemastery `Config`: `{ allowPaths: string[], detectors: string[],
-  extractCli: string, audit: { enabled, path }, placeholderKey: { file } }`.
+  extractCli: string, audit: { enabled, path }, placeholderKey: { file }, imageParts: 'ocr'|'block' }`.
 - Fail-closed: if `pii-core` cannot load, if the key file is missing, or if extraction blocks, the
   gate must deny rather than pass text through.
 

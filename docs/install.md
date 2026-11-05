@@ -102,6 +102,9 @@ Notes:
   that names the setting.
 - `placeholderKey` and `artifactDir` default to `%USERPROFILE%\.dsh\privacy\` — never put them in
   the repository. The key file is created with owner-only permissions.
+- An image you attach to a message is read by the local OCR engine and sent as masked text
+  (`imageParts: 'ocr'`, the default). Set `imageParts: 'block'` to reject such a step instead; both
+  fail closed when the bytes cannot be read.
 - Full option reference: [`plugins/dsh-privacy-gate/README.md`](../plugins/dsh-privacy-gate/README.md).
 
 > **Start a new session after installing.** The gate redacts at append time and never rewrites

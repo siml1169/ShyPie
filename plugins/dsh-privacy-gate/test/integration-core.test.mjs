@@ -130,16 +130,18 @@ test('gate 1 masks a read result with the real core, content and value', () => {
   assert.ok(!JSON.stringify(decision).includes(PII.iban))
 })
 
-test('gate 3 masks a user message with the real core', () => {
+test('gate 3 masks a user message with the real core', async () => {
   const deps = realDeps()
   const decision = { kind: 'enter', messages: [{ id: 'm', content: [{ type: 'text', text: `My IBAN is ${PII.iban}` }] }] }
-  const shaped = shapePreStep(deps, {}, decision)
+  const shaped = await shapePreStep(deps, {}, decision)
   assert.equal(shaped.kind, 'enter')
   assert.ok(!JSON.stringify(shaped).includes(PII.iban))
 })
 
-test('gate 3 still rejects an image attachment with the real core', () => {
+test('gate 3 rejects an image the machine cannot read, with the real core', async () => {
   const deps = realDeps()
   const decision = { kind: 'enter', messages: [{ id: 'm', content: [{ type: 'image', attachment: { attachmentId: 'x' } }] }] }
-  assert.deepEqual(shapePreStep(deps, {}, decision), { kind: 'reject' })
+  // No attachment service in this harness: the reference cannot be resolved, so the
+  // step is rejected rather than sent with the image in it.
+  assert.deepEqual(await shapePreStep(deps, {}, decision), { kind: 'reject' })
 })

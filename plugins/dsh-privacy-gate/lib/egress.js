@@ -58,7 +58,7 @@ function hintFor(reason) {
     return '; an earlier message in this session still holds content the gate cannot mask — start a new session (the log is append-only)'
   }
   if (reason.startsWith('MEDIA_')) {
-    return '; an attachment cannot be masked locally — extract it with privacy_ocr and send the text'
+    return '; an attachment is already in this session log — a newly attached image is OCR\'d locally before it is logged, so start a new session and attach it again'
   }
   if (reason === 'PROVIDER' || reason === 'MODEL') {
     return '; the provider/model is outside egressAllowProviders/egressAllowModels'

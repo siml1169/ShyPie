@@ -84,6 +84,7 @@ export const WRITABLE_FIELDS = Object.freeze([
   'egressAllowModels',
   'allowAgentDisable',
   'ocrEngine',
+  'imageParts',
   'visionProvider',
   'visionModel',
 ])

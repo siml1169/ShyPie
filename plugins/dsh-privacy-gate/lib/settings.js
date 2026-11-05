@@ -28,6 +28,7 @@ export function liveFromConfig(resolved) {
     egressAllowModels: [...resolved.egressAllowModels],
     allowAgentDisable: resolved.allowAgentDisable,
     ocrEngine: resolved.ocrEngine,
+    imageParts: resolved.imageParts,
     visionProvider: resolved.visionProvider,
     visionModel: resolved.visionModel,
   }
@@ -54,6 +55,7 @@ export function buildLiveRowConfig(rowConfig, live) {
     egressAllowModels: live.egressAllowModels,
     allowAgentDisable: live.allowAgentDisable,
     ocrEngine: live.ocrEngine,
+    imageParts: live.imageParts,
     visionProvider: live.visionProvider,
     visionModel: live.visionModel,
   }
