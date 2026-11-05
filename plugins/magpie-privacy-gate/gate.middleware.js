@@ -577,6 +577,12 @@ function usageOptions(options) {
   return resolvedOptions(options);
 }
 
+// Appended to the two content blocks: the usual cause is a part still sitting in the
+// conversation history, which the agent replays on every turn.
+var HISTORY_HINT =
+  " extract it to text first (privacy_extract / privacy_ocr). A part earlier in this" +
+  " conversation is replayed every turn, so remove it or start a new session. Nothing was sent.";
+
 function blocked(code, message) {
   return { ok: false, block: { code: code, message: message } };
 }
@@ -640,7 +646,7 @@ function inspect(body, ctx) {
     return blocked(
       "BINARY_PART",
       "privacy-gate: a content part of type \"" + clip(state.binary.kind, 40) +
-        "\" cannot be masked locally; extract it to text first (Settings -> Privacy masks text only). Nothing was sent."
+        "\" cannot be masked locally;" + HISTORY_HINT
     );
   }
 
@@ -650,7 +656,7 @@ function inspect(body, ctx) {
     return blocked(
       "BLOB",
       "privacy-gate: a text field carries an encoded blob (" + state.blob.code +
-        ") that cannot be masked locally; extract it to text first. Nothing was sent."
+        ") that cannot be masked locally;" + HISTORY_HINT
     );
   }
 
