@@ -1,6 +1,6 @@
 # ShyPie brand assets
 
-The selected ShyPie mark: a complete, uncut pie holding a shield with the Magpie bird.
+The selected ShyPie mark: a complete, uncut pie holding a shield with a generic bird.
 
 ## Files
 
@@ -32,7 +32,7 @@ The selected ShyPie mark: a complete, uncut pie holding a shield with the Magpie
 | Shield outline | `#08383B` |
 | Golden crust | `#F2B35A` |
 | Cream filling | `#FFF2D8` |
-| Magpie mark | `#F7E9C6` |
+| Bird mark | `#F7E9C6` |
 | Blush | `#F08074` |
 | Dark background | `#062F33` |
 
@@ -52,12 +52,7 @@ The manifest expects its icons at `platform/…` relative to the manifest. Adjus
 
 Use `shypie-icon-simple.svg` / `favicon.svg` below 48px. The complete illustration is still readable at 48–64px, but the eyes, hands and bird collapse into texture at 16–32px; the simplified mark keeps the pie ring, shield silhouette and bird mass.
 
-## Magpie mark
+## Bird mark
 
-The bird silhouette is taken from the Magpie icon in
-[lobehub/lobe-icons](https://github.com/lobehub/lobe-icons/blob/master/packages/static-svg/icons/magpie.svg).
-The Magpie name and mark belong to the Magpie project; review its trademark terms before
-redistributing an official product icon.
-
-The surrounding pie/shield illustration is a hand-built vector recreation of the approved
-raster sketch. If the master artwork changes, update the SVG source rather than editing PNGs.
+The bird on the shield is a generic silhouette created for this mark. The ShyPie
+name and logo belong to the ShyPie project.
