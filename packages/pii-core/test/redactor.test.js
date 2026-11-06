@@ -199,5 +199,5 @@ test('invalid configuration fails closed without echoing input', () => {
 });
 
 test('VERSION is exported', () => {
-  assert.equal(VERSION, '0.1.0');
+  assert.equal(VERSION, '0.3.0');
 });

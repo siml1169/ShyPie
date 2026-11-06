@@ -32,8 +32,8 @@ have moved forward:
 - the Magpie egress half is **merged in-tree** at magpie-community/plugins (`28108dd`) and awaits its
   first community npm publish;
 - the DSH catalog entry is **merged**;
-- the DSH **source** now includes filter mode, image/PDF attachment extraction and the composer
-  switch, but `0.3.0` is not published yet;
+- all four ShyPie **source** packages are at `0.3.0`, including filter mode, image/PDF attachment
+  extraction and the composer switch; npm publication is still pending;
 - the legacy personal-scope npm package is retired in the docs but its npm deprecation is still
   pending;
 - one Magpie guide-mode metadata issue is open ([#795](https://github.com/magpie-community/plugins/issues/795)).
@@ -49,18 +49,18 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 | **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; images/PDFs attached to a DSH message are converted before logging; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49; DSH 154/154 includes OCR plus PDF/file attachment tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all block reasons tested | Met on Windows; no cloud converter is ever called |
 | **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; the DSH `llm/stream` guard blocks before dispatch; Magpie returns 403 for binary parts/blobs/disallowed models by default, or withholds binary parts in guide mode; `onProvider` blanks content when it cannot reject | Magpie 62 in-tree cases; live image 403; guide-mode image withheld with HTTP 200; model-allowlist live 403; vendor-signature replays 200 | Met; the bounded text scan, engine timeout fail-open and the open guide-MIME issue are documented limits |
 | **DSH + Magpie plugin combo** | DSH host bundle (`@shypie_privacy/dsh-privacy-gate`) plus Magpie gateway middleware (`@magpie-community/middleware-privacy-gate`) | DSH bundle installs into `headless` and `desktop` profiles; live two-turn DeepSeek and Copilot sessions; merged middleware loaded in a live Magpie gateway | Met in code; Magpie package is merged in-tree but not yet on npm |
-| **A usable, maintained distribution** | ShyPie npm packages published (`dsh-privacy-gate` at `0.2.0`, others at `0.1.0`); DSH source `0.3.0` pending publish; Magpie middleware merged in-tree at `28108dd`; DSH catalog PR #12308 merged; tag `v0.2.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); [DSH catalog PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308); this repository's tags | Partial: Magpie npm publication and DSH `0.3.0` publication are pending |
+| **A usable, maintained distribution** | ShyPie source packages at `0.3.0`; npm still carries the older `0.1.0`/`0.2.0` releases pending a coordinated publish; Magpie middleware merged in-tree at `28108dd` with a `0.3.0` fork release branch; DSH catalog PR #12308 merged; latest tag `v0.2.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); [DSH catalog PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308); this repository's tags | Partial: all `@shypie_privacy` `0.3.0` npm publication is pending; community npm is outside ShyPie control |
 | **Honest limits, not a false guarantee** | design §12, security review with resolution table, bounded-scan/summary wording, explicit "does not mask text" scope | [docs/design.md](docs/design.md), [docs/research/security-review.md](docs/research/security-review.md), Magpie registry summary | Met; see §6 for open items |
 
 ## 4. Component status
 
 | Component | Version / source | Distribution | State |
 |---|---|---|---|
-| `@shypie_privacy/pii-core` | `0.1.0`, `packages/pii-core` | npm published | ✅ |
-| `@shypie_privacy/local-extract` | `0.1.0`, `packages/local-extract` | npm published | ✅ |
-| `@shypie_privacy/dsh-privacy-gate` | `0.3.0` source, `plugins/dsh-privacy-gate` | npm `0.2.0` published; `0.3.0` pending publish | ✅ filter mode, image/PDF extraction, composer switch, stable egress code; 154/154 tests |
-| `@magpie-community/middleware-privacy-gate` | `0.1.0` source, `packages/privacy-gate` on magpie-community/plugins `main` | merged in-tree at `28108dd`; npm not published | ✅ registry merged, 62 cases; npm publish pending |
-| legacy `@shypie_privacy/magpie-privacy-gate` | `0.1.0`, `plugins/magpie-privacy-gate` | npm published; legacy source still in ShyPie | 🟡 stage reject/deprecate pending |
+| `@shypie_privacy/pii-core` | `0.3.0` source, `packages/pii-core` | npm `0.1.0` published; `0.3.0` pending | ✅ |
+| `@shypie_privacy/local-extract` | `0.3.0` source, `packages/local-extract` | npm `0.1.0` published; `0.3.0` pending | ✅ |
+| `@shypie_privacy/dsh-privacy-gate` | `0.3.0` source, `plugins/dsh-privacy-gate` | npm `0.2.0` published; `0.3.0` pending | ✅ filter mode, image/PDF extraction, composer switch, stable egress code; 154/154 tests |
+| `@magpie-community/middleware-privacy-gate` | upstream `0.1.0` at `28108dd`; `0.3.0` branch `9f6f9ad` in the ShyPie fork | npm not published; upstream merge/publish outside ShyPie control | ✅ upstream merged, 62 cases; `0.3.0` branch prepared |
+| legacy `@shypie_privacy/magpie-privacy-gate` | `0.3.0` source, `plugins/magpie-privacy-gate` | npm `0.1.0` published; legacy source still in ShyPie | 🟡 stage reject/deprecate pending |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR #685 merged; DSH catalog PR #12308 merged | ✅ both merged |
 | brand assets | `assets/brand/shypie/` | SVG + PNG + favicon + platform exports | ✅ source-of-truth vector package |
 
@@ -123,15 +123,16 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
    `guideMime` validates a 100-character clip rather than the whole value, so a long base64-like
    `media_type` can contribute a fake MIME prefix to the guide prompt. Still open; not a binary
    egress bypass.
-4. **DSH `0.3.0` publication** — source includes filter mode, image/PDF extraction and the composer
-   switch; npm `0.2.0` is still the published version, and `v0.2.0` is the current tag/release.
+4. **`@shypie_privacy` `0.3.0` publication** — all four source manifests are `0.3.0`; npm still
+   serves the older versions. Publish in order, then tag `v0.3.0`. This needs npm login/2FA.
 5. **Legacy npm cleanup** — the external `@shypie_privacy/magpie-privacy-gate` package is still
    installable and its `0.1.1` stage still exists. Both require an authenticated npm write:
    `npm stage reject a9792716-3890-46a2-ae6f-c92e0fcf3aae` and
    `npm deprecate "@shypie_privacy/magpie-privacy-gate@*" "…"`.
 6. **ShyPie legacy middleware source** — `plugins/magpie-privacy-gate` is kept only as a legacy
    mirror; the canonical source is the merged in-tree package.
-7. **GitHub releases** — `v0.1.1` and `v0.2.0` are tagged and released; `v0.2.0` is current.
+7. **GitHub releases** — `v0.1.1` and `v0.2.0` are tagged and released; `v0.2.0` is current. Tag
+   `v0.3.0` after the coordinated npm publish.
 
 ## 7. Definition of done for the initial goal
 
@@ -142,7 +143,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [x] Magpie community package merged in-tree and registry entry merged.
 - [x] Both marketplace listings merged.
 - [ ] Magpie community package published on npm.
-- [ ] DSH source `0.3.0` published and tagged.
+- [ ] All four `@shypie_privacy` packages published at `0.3.0` and tagged.
 - [ ] Guide-mode MIME issue fixed/closed.
 - [ ] Legacy npm package rejected/deprecated.
 - [x] GitHub release from `v0.2.0`.

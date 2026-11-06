@@ -1,6 +1,6 @@
 {
   "name": "@shypie_privacy/pii-core",
-  "version": "0.1.0",
+  "version": "0.3.0",
   "type": "module",
   "description": "Deterministic local PII detectors and keyed placeholders for the privacy-first workflow (zero dependencies, no Node built-ins in index.js).",
   "keywords": [

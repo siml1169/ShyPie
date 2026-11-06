@@ -1,6 +1,6 @@
 {
   "name": "@shypie_privacy/magpie-privacy-gate",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "Magpie gateway middleware: the structural egress gate for the ShyPie privacy-first workflow with DeepSeek Harness. Does not mask text (that stays Magpie's Privacy masking); it turns away image, file and audio parts, encoded blobs and models outside the allowlist when Magpie cannot mask them locally, and fails closed on anything it cannot inspect.",
   "keywords": [

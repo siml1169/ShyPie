@@ -22,7 +22,7 @@
  * TextEncoder or console.
  */
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.3.0';
 
 /** Detector catalogue, in docs/interface-contract.md order. Frozen. */
 export const KINDS = Object.freeze([

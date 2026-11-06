@@ -91,7 +91,7 @@ behind the `./vault` subpath export.
 
 ```js
 // package.json exports: { ".": "./index.js", "./vault": "./vault.js" }
-export const VERSION;                 // "0.1.0"
+export const VERSION;                 // "0.3.0"
 export const KINDS;                   // readonly string[] — see catalogue below
 
 export function createRedactor(config); // config: { key: string, kinds?: string[], allowWords?: string[] }

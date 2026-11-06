@@ -43,7 +43,7 @@ test('index.js loads and redacts inside a bare ECMAScript vm context (moejs shap
   const context = vm.createContext({});
   const api = vm.runInContext(script + '\n;({ VERSION, KINDS, createRedactor, tokenFor, findPlaceholders });', context);
 
-  assert.equal(api.VERSION, '0.1.0');
+  assert.equal(api.VERSION, '0.3.0');
   assert.equal(api.KINDS.length, 17);
 
   const redactor = api.createRedactor({ key: 'moejs-session-key' });

@@ -19,7 +19,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const VERSION = '0.1.0';
+export const VERSION = '0.3.0';
 
 export const PKG_DIR = path.dirname(fileURLToPath(import.meta.url));
 

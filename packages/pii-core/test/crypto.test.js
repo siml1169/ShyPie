@@ -23,8 +23,8 @@ function base32(bytes) {
   return out;
 }
 
-test('VERSION is 0.1.0', () => {
-  assert.equal(VERSION, '0.1.0');
+test('VERSION is 0.3.0', () => {
+  assert.equal(VERSION, '0.3.0');
 });
 
 test('pure-JS SHA-256 matches node:crypto (empty, ASCII, Unicode, long)', () => {

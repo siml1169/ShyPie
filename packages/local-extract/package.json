@@ -1,6 +1,6 @@
 {
   "name": "@shypie_privacy/local-extract",
-  "version": "0.1.1",
+  "version": "0.3.0",
   "type": "module",
   "description": "Local-only document extraction (PDF text layer, local OCR, OOXML) with fail-closed blocking. Zero npm dependencies, no network.",
   "keywords": [
