@@ -1,6 +1,6 @@
 # ShyPie brand assets
 
-The selected ShyPie mark: a complete, uncut pie holding a shield with a generic bird.
+The selected ShyPie mark: a complete, uncut pie holding a shield with a gold chevron.
 
 ## Files
 
@@ -32,7 +32,7 @@ The selected ShyPie mark: a complete, uncut pie holding a shield with a generic 
 | Shield outline | `#08383B` |
 | Golden crust | `#F2B35A` |
 | Cream filling | `#FFF2D8` |
-| Bird mark | `#F7E9C6` |
+| Chevron | `#F2B35A` |
 | Blush | `#F08074` |
 | Dark background | `#062F33` |
 
@@ -50,9 +50,10 @@ The manifest expects its icons at `platform/…` relative to the manifest. Adjus
 
 ## Small sizes
 
-Use `shypie-icon-simple.svg` / `favicon.svg` below 48px. The complete illustration is still readable at 48–64px, but the eyes, hands and bird collapse into texture at 16–32px; the simplified mark keeps the pie ring, shield silhouette and bird mass.
+Use `shypie-icon-simple.svg` / `favicon.svg` below 48px. The complete illustration is still readable at 48–64px, but the eyes and hands collapse into texture at 16–32px; the simplified mark keeps the pie ring, shield silhouette and gold chevron.
 
-## Bird mark
+## Chevron mark
 
-The bird on the shield is a generic silhouette created for this mark. The ShyPie
+The gold chevron is the shield's only emblem. It is a simple, original shape made
+for this mark and contains no vendor logo or third-party symbol. The ShyPie
 name and logo belong to the ShyPie project.
