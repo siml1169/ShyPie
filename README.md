@@ -1,4 +1,15 @@
-# ShyPie — privacy-first workflow for DeepSeek Harness + Magpie
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/brand/shypie/svg/shypie-icon-dark.svg">
+    <img src="assets/brand/shypie/svg/shypie-icon.svg" width="168" alt="ShyPie">
+  </picture>
+</p>
+
+<h1 align="center">ShyPie</h1>
+
+<p align="center">
+  <strong>Privacy-first workflow for DeepSeek Harness + Magpie</strong>
+</p>
 
 > Keep PII on your machine: images and PDFs are converted to text **locally**, the local transcript
 > stays readable by default, and Magpie masks the text **before it leaves the machine**. Anything that
