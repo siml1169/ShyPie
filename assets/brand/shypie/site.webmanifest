@@ -1,0 +1,26 @@
+{
+  "name": "ShyPie",
+  "short_name": "ShyPie",
+  "description": "Privacy-first local extraction and filtering for AI agents.",
+  "icons": [
+    {
+      "src": "platform/android-chrome-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "platform/android-chrome-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "platform/maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "theme_color": "#0D4B4E",
+  "background_color": "#EAF7F0",
+  "display": "standalone"
+}
