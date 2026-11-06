@@ -19,7 +19,7 @@ cleanup; the published version will be deprecated with a pointer to the communit
 Known open issue in the merged Magpie package:
 [guide-mode MIME metadata validation #795](https://github.com/magpie-community/plugins/issues/795).
 
-- Tag `v0.3.0` is the latest release; `v0.2.0` is the previous tag.
+- Tag `v0.3.0` is pushed; `v0.2.0` is the previous tag. The GitHub release is created from the tag.
 - The DSH catalog entry was merged as [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308).
 - The Magpie registry entry was merged in [PR #685](https://github.com/magpie-community/plugins/pull/685)
   at `28108dd`.
@@ -132,7 +132,8 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [x] DSH source `0.3.0` (filter mode, image/PDF extraction) published and tagged.
 - [x] `0.3.0` version bump applied to all ShyPie packages and the community release branch.
 - [ ] Legacy `@shypie_privacy/magpie-privacy-gate` stage rejected and package deprecated.
-- [x] GitHub release/tag created for `v0.3.0`.
+- [x] Tag `v0.3.0` created and pushed.
+- [ ] GitHub release created from tag `v0.3.0`.
 - [x] Previous release created from tag `v0.2.0`.
 
 ## 5. Version strategy

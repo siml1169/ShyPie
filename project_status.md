@@ -131,7 +131,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
    `npm deprecate "@shypie_privacy/magpie-privacy-gate@*" "…"`.
 6. **ShyPie legacy middleware source** — `plugins/magpie-privacy-gate` is kept only as a legacy
    mirror; the canonical source is the merged in-tree package.
-7. **GitHub releases** — `v0.3.0` is the current release; `v0.2.0` and `v0.1.1` are previous tags.
+7. **GitHub releases** — tag `v0.3.0` is pushed; the GitHub release is still to be created. `v0.2.0` and `v0.1.1` are previous tags.
 
 ## 7. Definition of done for the initial goal
 
@@ -145,7 +145,8 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [x] All four `@shypie_privacy` packages published at `0.3.0` and tagged.
 - [ ] Guide-mode MIME issue fixed/closed.
 - [ ] Legacy npm package rejected/deprecated.
-- [x] GitHub release from `v0.3.0`.
+- [x] Tag `v0.3.0` pushed.
+- [ ] GitHub release created from `v0.3.0`.
 
 ## 8. Sources of truth
 

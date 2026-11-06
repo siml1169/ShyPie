@@ -210,7 +210,7 @@ in the ShyPie fork, not merged, and the community npm package is not published. 
 [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged, and the
 Magpie registry entry is merged. The legacy `@shypie_privacy/magpie-privacy-gate` npm package is
 retired. Known open issue: [guide-mode MIME validation #795](https://github.com/magpie-community/plugins/issues/795).
-Tag `v0.3.0` is the latest release. The **live wiring** was exercised manually on
+Tag `v0.3.0` is pushed; the GitHub release can be created from it. The **live wiring** was exercised manually on
 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle installed from npm, two-turn DeepSeek and
 Copilot `gpt-6.1-sol` sessions through a live Magpie gateway, and a temporary model-allowlist
 block that the gate rejected. The `llm/stream` guard and its stable `PRIVACY_EGRESS_BLOCKED` code
