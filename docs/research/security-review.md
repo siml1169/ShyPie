@@ -20,12 +20,13 @@ probes (below).
 > vendor block, and `ctx.reject` is called with the hook returning immediately — magpie's host performs
 > the rejection and returns nothing, so the return value is not consulted.
 >
-> **Current-state update (2026-11-05).** The historical counts above describe the 2026-11-03
-> snapshot. Current state: DSH bundle `0.2.0` is published with the fail-closed `llm/stream` egress
-> guard and stable `PRIVACY_EGRESS_BLOCKED` code; DSH suite is 100/100. The Magpie middleware is
-> in-tree at PR #685 head `40ab0a5` with 50 cases, including primitive/value bounds, per-field text
-> sharing, and root-only declaration scoping; the Magpie engine timeout/residual items below remain
-> tracked separately. The DSH catalog entry is PR #12308.
+> **Current-state update (2026-11-06).** The historical counts above describe the 2026-11-03
+> snapshot. Current state: DSH source `0.3.0` adds filter mode, image/PDF attachment extraction and
+> the composer switch; npm `0.2.0` is the published release and the DSH suite is 154/154. The Magpie
+> middleware is **merged in-tree** at `28108dd` (`packages/privacy-gate`, 62 cases, guide mode and
+> malformed-option guards); its npm package is still unpublished. The DSH catalog PR #12308 is
+> merged. Open follow-ups: [guide-MIME issue #795](https://github.com/magpie-community/plugins/issues/795)
+> and the Magpie engine timeout/fail-open item below.
 
 **What was not done (and why):** no live DSH profile, no live Magpie gateway (away from a user's machine),
 no user documents/PII trees read, no installs, no network. Consequences are marked **UNVERIFIED** where

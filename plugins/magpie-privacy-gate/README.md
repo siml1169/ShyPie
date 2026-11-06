@@ -1,9 +1,12 @@
 # magpie-privacy-gate — structural egress firewall for magpie's gateway
 
-> **Moved in-tree.** The canonical source is now
-> [`packages/privacy-gate`](https://github.com/magpie-community/plugins/pull/685) in
-> magpie-community/plugins; its package is `@magpie-community/middleware-privacy-gate`. This
-> ShyPie copy is the legacy source; `@shypie_privacy/magpie-privacy-gate` is no longer referenced and is being retired.
+> **Moved in-tree and merged.** The canonical source is now
+> [`packages/privacy-gate`](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate) in
+> magpie-community/plugins (merged at `28108dd`); its package is
+> `@magpie-community/middleware-privacy-gate`, not yet published on npm. This ShyPie copy is the
+> legacy 0.1.0-era mirror; `@shypie_privacy/magpie-privacy-gate` is no longer referenced and is
+> being retired. The 422/error text in the historical sections below predates the merged 403 and
+> `binaryPolicy: guide` behavior; use the canonical README for current options.
 
 A magpie **gateway middleware** plugin. It closes the one gap magpie's own masking says it cannot
 close:

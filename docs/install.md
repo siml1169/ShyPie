@@ -26,25 +26,27 @@ requires only Node and the local binaries above.
 ## 1. Magpie: structural egress firewall + text masking
 
 ```bash
-# install the middleware plugin (a folder path is loaded where it is)
-magpie plugin add "$repo/plugins/magpie-privacy-gate"
+# The middleware is merged in magpie-community/plugins but not on npm yet.
+git clone https://github.com/magpie-community/plugins
+magpie plugin add <clone>/packages/privacy-gate
 
 # what may go to a remote model, and what counts as local
-magpie plugin options privacy-gate '{"localModels":["ollama/*","lmstudio/*"],"localProviders":["ollama","lmstudio"],"allowModels":["deepseek/*","copilot/*","gemini/*"],"blobBase64Chars":400,"blobHexChars":400}'
+magpie plugin options privacy-gate '{"binaryPolicy":"fail","localModels":["ollama/*","lmstudio/*"],"localProviders":["ollama","lmstudio"],"allowModels":["deepseek/*","copilot/*","gemini/*"],"blobBase64Chars":400,"blobHexChars":400}'
 
 # confirm it is listed and on
 magpie plugin
 ```
 
-The option names, defaults and their meaning are documented in
-[`plugins/magpie-privacy-gate/README.md`](../plugins/magpie-privacy-gate/README.md). A copy of the
-example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
+The canonical option names, defaults and their meaning are in
+[`packages/privacy-gate/README.md`](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate/README.md).
+A copy of the example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
-The middleware now lives in-tree in **magpie-community/plugins** ([`packages/privacy-gate`](https://github.com/magpie-community/plugins/pull/685));
-its package is `@magpie-community/middleware-privacy-gate`. The legacy
-`@shypie_privacy/magpie-privacy-gate` package is no longer referenced and is being retired. Until the community package publishes,
-keep the folder path above. A folder is loaded where it is, so neither form copies anything into the
-Magpie config directory ([docs/publish.md](publish.md)).
+The middleware is **merged in-tree** in magpie-community/plugins ([`packages/privacy-gate`](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate));
+its package is `@magpie-community/middleware-privacy-gate`. The registry entry is merged, but the
+npm package is not published yet, so use the checkout path above for now. The legacy
+`@shypie_privacy/magpie-privacy-gate` package is no longer referenced and is retired. A folder is
+loaded where it is, so neither form copies anything into the Magpie config directory
+([docs/publish.md](publish.md)).
 
 Then turn text masking on — **Settings → Privacy**, or `~/.config/magpie/settings.json`:
 
@@ -75,10 +77,12 @@ Install the bundle **through the plugin manager**, never by editing the profile 
   `target: "$repo/plugins/dsh-privacy-gate"` (absolute path), or
 - install it from the Plugins page if the build exposes a folder install.
 
-From npm, `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate` installs the same
-bundle without a checkout; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older
-host refuses it instead of failing at load time. `0.2.0` is the first npm release with the egress
-guard and the stable `PRIVACY_EGRESS_BLOCKED` code.
+The current source is `0.3.0` and adds filter mode, image/PDF attachment extraction and the composer
+switch. Install it from the checkout for those features. From npm, `dsh plugin --profile <name> add
+@shypie_privacy/dsh-privacy-gate` installs `0.2.0`, which predates filter mode and PDF attachment
+extraction; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older host refuses it instead
+of failing at load time. `0.2.0` was the first npm release with the egress guard and the stable
+`PRIVACY_EGRESS_BLOCKED` code.
 
 Then set the bundle row's config (the `cordis.patch.yml` config layer). A minimal configuration:
 
@@ -131,8 +135,14 @@ In a **new** session:
 ## 3. Verify the gateway firewall
 
 With the middleware on, a request that carries an image part to a model whose provider is not
-declared local must fail with a 422 whose message says the part cannot be masked locally. Magpie →
-**Settings → Plugins** shows the middleware's hook counts and failures.
+declared local gets a **403** in the default `binaryPolicy: fail` mode, with a message saying the
+part cannot be masked locally. In `binaryPolicy: guide` mode the image is withheld and the model is
+asked to process it locally; no image bytes are sent. Magpie → **Settings → Plugins** shows the
+middleware's hook counts and failures.
+
+Guide mode is still a structural gate, not an extractor: it advertises local tools but cannot run
+them. See [issue #795](https://github.com/magpie-community/plugins/issues/795) for the open
+guide-MIME metadata issue.
 
 If a legitimate request is rejected, extract the document locally and send the redacted text — do
 not turn the gate off.

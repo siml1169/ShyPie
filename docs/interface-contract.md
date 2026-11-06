@@ -223,13 +223,12 @@ waterfall registrations; assert that redaction happens, that `next()` is returne
 that BLOB hits block, and that the fail-closed paths hold. The suite does not load the bundle into a
 live profile.
 
-## Magpie plugin — `plugins/magpie-privacy-gate/`
+## Magpie plugin — `packages/privacy-gate/` (magpie-community/plugins)
 
 A Magpie gateway-middleware plugin (plain JS, runs in moejs: **no** `fetch`, timers, Node APIs,
 `require`, or imports outside the plugin — everything bundled into the file).
 
-Files: `gate.middleware.js` (or `package.json` with `{"magpie":{"middleware":"./gate.middleware.js"}}`),
-`package.json`, `README.md`, `test/harness.mjs`.
+Files: `privacy-gate.middleware.js`, `cases.json`, `privacy-gate.test.mjs`, `package.json`, `README.md`.
 
 Hooks:
 
@@ -245,15 +244,19 @@ Behaviour:
 1. Structural egress firewall (the part Magpie cannot do): walk every `messages[].content[]` /
    `input[]` part; classify `text` vs `image_url|input_image|image|file|input_file|document|
    audio|video`; if a non-text part exists and `ctx.model` is not in `options.localModels` →
-   `ctx.reject(422, "privacy-gate: binary/document part cannot be masked locally; extract to text
-   first")`. Exact wording may change, but the message must never echo content.
+   `ctx.reject(403, "privacy-gate: binary/document part cannot be masked locally; extract to text
+   first")` in `binaryPolicy: fail` (default). In `binaryPolicy: guide`, replace the part with
+   type/size metadata and a neutral local-tool prompt instead, and re-scan the rewritten body;
+   fall back to 403 if the rewrite cannot be bounded. The message must never echo content.
 2. BLOB smuggling: reject a *text* part matching a base64/hex blob over the configured threshold
-   (an agent can smuggle document bytes as text) with 422. Vendor-sealed replay fields are exempt
+   (an agent can smuggle document bytes as text) with 403. Guide mode's single bounded walk must
+   still scan older text and `system`/`instructions`. Vendor-sealed replay fields are exempt
    **only inside their vendor block**: Anthropic thinking `signature`, Responses reasoning
    `encrypted_content`, Gemini part `thoughtSignature`, and vendor item `id`; a same-named key in
    tool arguments or message text is still scanned. The text scan is bounded by `scanChars`.
-3. Model allowlist: `options.allowModels` (globs) — anything else is rejected with 422 naming the
-   model and the policy, never the content. Empty list = allow all (but rule 1 still applies).
+3. Model allowlist: `options.allowModels` (globs) — anything else is rejected with 403 naming the
+   model and the policy, never the content. Empty/absent = allow all (but rule 1 still applies).
+   A present-but-malformed `allowModels` refuses every request instead of falling back to allow-all.
 4. Audit: `onUsage(row, options)` increments counters and `console.log`s one bounded line
    (provider/model/status/blocked counts only) — Magpie logs it.
 5. Never reject on plaintext PII *text*: `onRequest` runs before Magpie's redaction, so rejecting
@@ -261,7 +264,7 @@ Behaviour:
    redaction on the way out and after it on the way back"), and state that text masking is Magpie's
    job (`redact` plugin, local astrlink-guard) while *this* plugin owns the structural gap.
 
-The plugin README gives the exact install/verify commands (`magpie plugin add ./plugins/magpie-privacy-gate`,
+The canonical plugin README gives the exact install/verify commands (`magpie plugin add <clone>/packages/privacy-gate`,
 `magpie plugin options privacy-gate '<json>'`, the Settings → Privacy setup for full masking, and the
 `magpie web`/`settings.json` equivalent), plus how to confirm with Settings → Privacy → Try it.
 

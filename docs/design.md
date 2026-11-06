@@ -19,8 +19,8 @@ The workflow is a **combo of two plugins plus one shared core**:
 |---|---|---|
 | `@shypie_privacy/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
 | `@shypie_privacy/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
-| `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** redaction, local extraction tools, `read_image`/binary guards, rehydrate-into-artifact |
-| `@magpie-community/middleware-privacy-gate` (in-tree; legacy `@shypie_privacy/magpie-privacy-gate` no longer referenced) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist |
+| `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** filter/optional redaction, local attachment extraction (images/PDF), `read_image`/binary guards, rehydrate-into-artifact |
+| `@magpie-community/middleware-privacy-gate` (merged in-tree at `28108dd`; legacy `@shypie_privacy/magpie-privacy-gate` no longer referenced) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extractor |
 
 The split is forced by one hard fact and covers two different gaps:
 
@@ -345,9 +345,10 @@ the same gateway (Copilot, Cursor, Claude Code, scripts):
 
 | Rule | Hook | Decision |
 |---|---|---|
-| Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(422, …)` |
-| Text part that is really a blob (base64 ≥ 400 contiguous **or** line-wrapped, spaced hex, `data:` URI, PDF/ZIP magic) | `onRequest` | `ctx.reject(422, …)` |
-| Model not matching `allowModels` | `onRequest` | `ctx.reject(422, …)` |
+| Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(403, …)` in `binaryPolicy: fail` (default) |
+| Non-text content part in `binaryPolicy: guide` | `onRequest` | replace every binary part with type/size metadata + a neutral local-tool prompt; re-scan the rewritten body; 403 if it cannot be fully bounded |
+| Text part that is really a blob (base64 ≥ 400 contiguous **or** line-wrapped, spaced hex, `data:` URI, PDF/ZIP magic) | `onRequest` | `ctx.reject(403, …)` |
+| Model not matching `allowModels` | `onRequest` | `ctx.reject(403, …)`; a malformed `allowModels` value refuses every request |
 | Vendor-sealed signature/id field inside its vendor block (Anthropic thinking `signature`, Responses reasoning `encrypted_content`, Gemini part `thoughtSignature`, vendor item `id`) | `onRequest` | exempt from the blob scan; the same key in tool arguments or message text is still scanned |
 | Binary part on a provider not declared local (`onProvider`, where the provider id is known) | `onProvider` | content blanked (cannot reject there) |
 | Everything else | `onRequest` | pass through untouched |
@@ -410,7 +411,7 @@ Every row is a path where data *would* move; the design's answer is in the last 
 | `read_image` on a document | raster enters context | **denied** outside `allowPaths` |
 | Base64 blob in a text tool result | text-passes masking | **blocked** by `BLOB` detector (400 chars, contiguous/wrapped/spaced-hex/data-URI) |
 | One-page invoice encoded as base64 (~1.3 k chars) | under the old 2 k threshold → passed | **blocked** (threshold 400; measured in the e2e suite) |
-| Image part in an LLM request to a remote provider | sent as-is | **rejected 422** by Magpie middleware |
+| Image part in an LLM request to a remote provider | sent as-is | **rejected 403** by Magpie middleware in `fail` mode, or withheld and replaced with metadata in `guide` mode |
 | Image part to a model allowlisted as local | sent | allowed (it never leaves the machine) |
 | Masker unavailable / turned off | request could go unmasked | DSH gate unconditional; Magpie masking fails closed (503); middleware still rejects non-text |
 | Detector false negative | value goes out | residual risk; second layer + audit counts + explicit limitation |
@@ -441,8 +442,11 @@ Every row is a path where data *would* move; the design's answer is in the last 
 ### 9.2 Magpie
 
 ```bash
-magpie plugin add ./plugins/magpie-privacy-gate
+# merged in magpie-community/plugins; npm package not published yet
+git clone https://github.com/magpie-community/plugins
+magpie plugin add <clone>/packages/privacy-gate
 magpie plugin options privacy-gate '{
+  "binaryPolicy": "guide",
   "localModels": ["ollama/*", "lmstudio/*"],
   "localProviders": ["ollama", "lmstudio"],
   "allowModels": ["deepseek/*", "copilot/*", "gemini/*"],
@@ -504,13 +508,14 @@ node tests/run-all.mjs                   # every suite, one summary
 | Redaction cost | `packages/pii-core/test/perf.test.js`, `test/hardening.test.js` | 50,125-char synthetic doc, 2,133 hits → **11.5 ms best / 12.3 ms median** warm (budget 50 ms); clean 50k doc 2.5 ms; adversarial 300k-digit run **40 ms** (was 380 ms before the card-detector fast path), 1M digits 110 ms |
 | PDF text extraction, Office extraction, OCR, every reachable block reason | `packages/local-extract/test/` | **49/49 pass**; text layer 93 chars; scan → `winrt-ocr`, ~0.65–0.78 s for 2 pages, 2.9–3.3 s full CLI; all 8 block reasons measured |
 | ShyPie Filter: local attachment extraction/OCR (image + PDF), configurable filter/mask text policy, BLOB block, guards, fail-closed egress guard with stable error code and incremental scan, 4 tools | `plugins/dsh-privacy-gate/test/` | **154/154 pass**; full repo suite green |
-| DSH Gate 3: model-visible user text masked, an attached image replaced by masked local OCR text (or the step rejected), raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; attachment → text path exercised against real attachment bytes and the real `winrt-ocr` engine 2026-11-05 (live GUI turn not exercised) |
-| Magpie middleware: image/file/audio rejection, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `plugins/magpie-privacy-gate/test/harness.mjs` | **58/58 pass** in `node:vm` with only `console`; 15 forbidden-token checks (`fetch`/`require`/timers/`process`/`Buffer`/`module` all absent) |
+| DSH Gate 3: user text follows `textPolicy` (filter default / optional local mask), attached images/PDFs replaced by locally extracted text (or the step rejected), raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; image/PDF → text path exercised against real attachment bytes, the real `winrt-ocr` engine and a real PDF extractor 2026-11-05/06 (live GUI turn not exercised) |
+| Magpie middleware: image/file/audio rejection or guide withholding, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `magpie-community/plugins/packages/privacy-gate/` | **62/62 pass** in the in-tree suite (merged `28108dd`); guide-mode and malformed-option cases included; `bun scripts/check.mjs` green |
 | End-to-end: synthetic invoice → local text → placeholders → request body has no plaintext → gateway allow/reject → reply restores | `tests/e2e/` | **11/11 pass**, incl. the blocked-scan path and the OS-OCR path |
 | The bundle installs and is live in a real DSH profile | — | **verified manually 2026-11-03**: npm install into the `headless` and `desktop` profiles; two-turn DeepSeek session and a two-turn Copilot `gpt-6.1-sol` session through the live gateway; temporary model-allowlist block rejected a turn |
 | The middleware runs inside a real Magpie gateway | — | **verified manually 2026-11-03**: loaded in the live gateway, hooks listed, image part 403, long-token block confirmed; Copilot-routed OpenAI Responses `encrypted_content` (5,208 chars) and Anthropic thinking `signature` (892 chars) replays both returned HTTP 200; a temporary model allowlist returned 403 for both protocols |
 
-Live seams were exercised manually on 2026-11-03 (DSH 0.2.1-rc.5 headless + live Magpie), not in CI:
+Live seams were exercised manually on 2026-11-03 (DSH 0.2.1-rc.5 headless + live Magpie) and
+2026-11-06 (merged guide mode), not in CI:
 the DSH GUI profile is managed by the Electron app and the Magpie config is machine-local. The core
 logic, fail-closed paths and end-to-end data flow remain covered by the automated suites; the
 activation wiring is additionally covered by the activation check and the manual run above.
