@@ -77,12 +77,10 @@ Install the bundle **through the plugin manager**, never by editing the profile 
   `target: "$repo/plugins/dsh-privacy-gate"` (absolute path), or
 - install it from the Plugins page if the build exposes a folder install.
 
-The current source is `0.3.0` and adds filter mode, image/PDF attachment extraction and the composer
-switch. Install it from the checkout for those features. From npm, `dsh plugin --profile <name> add
-@shypie_privacy/dsh-privacy-gate` installs `0.2.0`, which predates filter mode and PDF attachment
-extraction; the manifest declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older host refuses it instead
-of failing at load time. `0.2.0` was the first npm release with the egress guard and the stable
-`PRIVACY_EGRESS_BLOCKED` code.
+The current release is `0.3.0`, with filter mode, image/PDF attachment extraction and the composer
+switch. Install it from npm with `dsh plugin --profile <name> add
+@shypie_privacy/dsh-privacy-gate`, or from the checkout for an unreleased local build. The manifest
+declares `engines.dsh` `>=0.2.0 <0.3.0`, so an older host refuses it instead of failing at load time.
 
 Then set the bundle row's config (the `cordis.patch.yml` config layer). A minimal configuration:
 
