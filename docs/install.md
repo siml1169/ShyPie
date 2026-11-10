@@ -42,8 +42,8 @@ The canonical option names, defaults and their meaning are in
 A copy of the example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
 The middleware is **merged in-tree** in magpie-community/plugins ([`packages/privacy-gate`](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate));
-its package is `@magpie-community/middleware-privacy-gate`. The registry entry is merged, but the
-npm package is not published yet, so use the checkout path above for now. The legacy
+its package is `@magpie-community/middleware-privacy-gate`, now at **`0.3.1`** in-tree. The registry
+entry is merged, but the npm package is not published yet, so use the checkout path above for now. The legacy
 `@shypie_privacy/magpie-privacy-gate` package is no longer referenced and is retired. A folder is
 loaded where it is, so neither form copies anything into the Magpie config directory
 ([docs/publish.md](publish.md)).
@@ -139,8 +139,9 @@ asked to process it locally; no image bytes are sent. Magpie → **Settings → 
 middleware's hook counts and failures.
 
 Guide mode is still a structural gate, not an extractor: it advertises local tools but cannot run
-them. See [issue #795](https://github.com/magpie-community/plugins/issues/795) for the open
-guide-MIME metadata issue.
+them. Since `0.3.1` the withheld-part note names a coarse media class (`image`, `pdf`, `office`,
+`audio`, `video`, `unknown`) rather than any raw `media_type`, so no untrusted metadata is echoed to
+the model. That closed [issue #795](https://github.com/magpie-community/plugins/issues/795).
 
 If a legitimate request is rejected, extract the document locally and send the redacted text — do
 not turn the gate off.

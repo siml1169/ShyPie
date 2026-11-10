@@ -9,6 +9,8 @@ Ready-to-copy files for the two plugin markets. Prerequisites, publish order and
 | [`dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml`](dsh/siml1169__ShyPie--plugins-dsh-privacy-gate.yml) | `data/plugins/` in [awesome-dsh-plugin/awesome-dsh-plugin](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin) |
 
 The Magpie middleware is now **in-tree** in magpie-community/plugins and its registry entry is
-[PR #685](https://github.com/magpie-community/plugins/pull/685); the legacy
+[PR #685](https://github.com/magpie-community/plugins/pull/685); the in-tree package is at `0.3.1`
+([PR #798](https://github.com/magpie-community/plugins/pull/798),
+[PR #838](https://github.com/magpie-community/plugins/pull/838)). The legacy
 `@shypie_privacy/magpie-privacy-gate` npm package is no longer referenced and is being retired. The DSH bundle is published and its catalog entry is
 [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308).

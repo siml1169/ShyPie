@@ -304,7 +304,7 @@ prompt-injected instruction must not be able to turn the gate off by itself. It 
 ## Tests
 
 ```
-node --test                     # 154 tests, no network, synthetic fixtures only
+node --test                     # 153 tests, no network, synthetic fixtures only
 node scripts/vendor-core.mjs --check   # vendor copy is current
 node scripts/activation-check.mjs      # needs @deepseek-ai/schemastery resolvable
 ```

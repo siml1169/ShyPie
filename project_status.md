@@ -1,6 +1,6 @@
 # Project status — ShyPie privacy-first workflow
 
-**Last updated:** 2026-11-06
+**Last updated:** 2026-11-10
 **Scope:** the whole project — the DeepSeek Harness bundle, the Magpie middleware, the shared
 libraries, publication and marketplace state.
 **Update this file after every package release, PR merge, or marketplace change.**
@@ -29,14 +29,15 @@ The goal is **implemented and verified on the reference machine**, and the main 
 have moved forward:
 
 - the local ingestion half is published and live-tested;
-- the Magpie egress half is **merged in-tree** at magpie-community/plugins (`28108dd`) and awaits its
-  first community npm publish;
+- the Magpie egress half is **merged in-tree** at magpie-community/plugins and has moved to **`0.3.1`**
+  (`d34785a`); it still awaits its first community npm publish;
 - the DSH catalog entry is **merged**;
 - all four ShyPie packages are **published at `0.3.0`**, including filter mode, image/PDF attachment
   extraction and the composer switch;
 - the legacy personal-scope npm package is retired in the docs but its npm deprecation is still
   pending;
-- one Magpie guide-mode metadata issue is open ([#795](https://github.com/magpie-community/plugins/issues/795)).
+- the formerly open Magpie guide-mode metadata issue
+  ([#795](https://github.com/magpie-community/plugins/issues/795)) is **closed**, fixed by `0.3.1`.
 
 This is a **best-effort privacy design, not an absolute guarantee**. The named residuals in
 [docs/design.md §12](docs/design.md#12-known-limitations) remain part of the status.
@@ -45,11 +46,11 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 | Initial requirement | How it is implemented | Evidence | Status |
 |---|---|---|---|
-| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; default `textPolicy: filter` keeps raw local text while Magpie's Privacy masking masks the gateway text path; `mask` restores local redaction; DSH Gate 1/3 and `llm/stream` enforce the filter | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 154/154; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
-| **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; images/PDFs attached to a DSH message are converted before logging; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49; DSH 154/154 includes OCR plus PDF/file attachment tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all block reasons tested | Met on Windows; no cloud converter is ever called |
-| **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; the DSH `llm/stream` guard blocks before dispatch; Magpie returns 403 for binary parts/blobs/disallowed models by default, or withholds binary parts in guide mode; `onProvider` blanks content when it cannot reject | Magpie 62 in-tree cases; live image 403; guide-mode image withheld with HTTP 200; model-allowlist live 403; vendor-signature replays 200 | Met; the bounded text scan, engine timeout fail-open and the open guide-MIME issue are documented limits |
+| **PII stays local and is masked before it reaches an LLM** | `pii-core` detectors + keyed placeholders; default `textPolicy: filter` keeps raw local text while Magpie's Privacy masking masks the gateway text path; `mask` restores local redaction; DSH Gate 1/3 and `llm/stream` enforce the filter | `pii-core` 61 top-level tests (60 pass, 1 platform skip); DSH gate 153/153; e2e 11/11; live DSH + Magpie runs | Met for the documented scope; free-text names, the raw submitted prompt and Magpie's masking journal remain named residuals |
+| **PDF / Office / OCR conversion is local** | `local-extract` CLI and the DSH `privacy_extract` / `privacy_ocr` tools; images/PDFs attached to a DSH message are converted before logging; `pdftotext`/`pdftoppm`/`pdfinfo`, Windows `Windows.Media.Ocr`, optional tesseract adapter | `local-extract` 49/49; DSH 153/153 includes OCR plus PDF/file attachment tests; measured scan OCR ~0.65–0.78 s for 2 pages, ~2.9–3.3 s full CLI; all block reasons tested | Met on Windows; no cloud converter is ever called |
+| **If local conversion or masking is impossible, block the transfer** | DSH tool errors and guards fail closed; the DSH `llm/stream` guard blocks before dispatch; Magpie returns 403 for binary parts/blobs/disallowed models by default, or withholds binary parts in guide mode; `onProvider` blanks content when it cannot reject | Magpie 67 in-tree cases at `0.3.1`; live image 403; guide-mode image withheld with HTTP 200; model-allowlist live 403; vendor-signature replays 200 | Met; the bounded text scan and the engine timeout fail-open are documented limits (the guide-MIME issue is closed) |
 | **DSH + Magpie plugin combo** | DSH host bundle (`@shypie_privacy/dsh-privacy-gate`) plus Magpie gateway middleware (`@magpie-community/middleware-privacy-gate`) | DSH bundle installs into `headless` and `desktop` profiles; live two-turn DeepSeek and Copilot sessions; merged middleware loaded in a live Magpie gateway | Met in code; Magpie package is merged in-tree but not yet on npm |
-| **A usable, maintained distribution** | All four `@shypie_privacy` packages published at `0.3.0`; Magpie middleware merged in-tree at `28108dd` with a `0.3.0` fork release branch; DSH catalog PR #12308 merged; latest tag `v0.3.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685); [DSH catalog PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308); this repository's tags | Met for ShyPie; community npm is outside ShyPie control |
+| **A usable, maintained distribution** | All four `@shypie_privacy` packages published at `0.3.0`; Magpie middleware merged in-tree and released upstream at `0.3.1`; DSH catalog PR #12308 merged; latest tag `v0.3.0` | `npm view` for the packages; [PR #685](https://github.com/magpie-community/plugins/pull/685), [PR #798](https://github.com/magpie-community/plugins/pull/798), [PR #838](https://github.com/magpie-community/plugins/pull/838); [DSH catalog PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308); this repository's tags | Met for ShyPie; community npm is outside ShyPie control |
 | **Honest limits, not a false guarantee** | design §12, security review with resolution table, bounded-scan/summary wording, explicit "does not mask text" scope | [docs/design.md](docs/design.md), [docs/research/security-review.md](docs/research/security-review.md), Magpie registry summary | Met; see §6 for open items |
 
 ## 4. Component status
@@ -58,9 +59,9 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 |---|---|---|---|
 | `@shypie_privacy/pii-core` | `0.3.0`, `packages/pii-core` | npm published | ✅ |
 | `@shypie_privacy/local-extract` | `0.3.0`, `packages/local-extract` | npm published | ✅ |
-| `@shypie_privacy/dsh-privacy-gate` | `0.3.0`, `plugins/dsh-privacy-gate` | npm published | ✅ filter mode, image/PDF extraction, composer switch, stable egress code; 154/154 tests |
-| `@magpie-community/middleware-privacy-gate` | upstream `0.1.0` at `28108dd`; `0.3.0` branch `9f6f9ad` in the ShyPie fork | npm not published; upstream merge/publish outside ShyPie control | ✅ upstream merged, 62 cases; `0.3.0` branch prepared |
-| legacy `@shypie_privacy/magpie-privacy-gate` | `0.3.0`, `plugins/magpie-privacy-gate` | npm published; legacy source still in ShyPie | 🟡 stage reject/deprecate pending |
+| `@shypie_privacy/dsh-privacy-gate` | `0.3.0`, `plugins/dsh-privacy-gate` | npm published | ✅ filter mode, image/PDF extraction, composer switch, stable egress code; 153/153 tests |
+| `@magpie-community/middleware-privacy-gate` | upstream **`0.3.1`** at `d34785a` (released in-tree via PRs #798 and #838) | npm not published; upstream merge/publish outside ShyPie control | ✅ upstream merged and released in-tree, 67 cases; guide-MIME issue #795 closed |
+| legacy `@shypie_privacy/magpie-privacy-gate` | `0.3.0`, `plugins/magpie-privacy-gate` | npm published; legacy source still in ShyPie | 🟡 stage reject/deprecate pending. The in-tree copy predates guide mode — it has no `binaryPolicy` and no withholding path, so it behaves differently from the canonical `0.3.1` package despite the shared `0.3.0` version |
 | marketplace entries | `marketplace/magpie/registry-entry.json`, `marketplace/dsh/…yml` | Magpie PR #685 merged; DSH catalog PR #12308 merged | ✅ both merged |
 | brand assets | `assets/brand/shypie/` | SVG + PNG + favicon + platform exports | ✅ source-of-truth vector package |
 
@@ -70,11 +71,12 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 
 - `pii-core`: 61 top-level tests, 60 pass, 1 platform skip.
 - `local-extract`: 49/49.
-- `dsh-privacy-gate`: 154/154; activation check registers **3 listeners, 1 guard, 5 tools**.
+- `dsh-privacy-gate`: 153/153; activation check registers **3 listeners, 1 guard, 5 tools**.
 - `e2e`: 11/11.
-- Magpie middleware: **62 cases** in `packages/privacy-gate/cases.json`; `bun scripts/check.mjs`
-  validates the merged registry. Measured in moejs: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms
-  (403 at cap); 200 turns / 350 KB = 38 ms (pass); guide-mode bound and protocol-site cases added.
+- Magpie middleware (upstream, **not run by this repo's runner**): **67 cases** in
+  `packages/privacy-gate/cases.json` at `0.3.1`; `bun scripts/check.mjs` validates the merged
+  registry. Measured in moejs: 2,000 tool turns / 3.5 MB / ~40k values = 76 ms (403 at cap);
+  200 turns / 350 KB = 38 ms (pass); guide-mode media-class and protocol-site cases included.
 
 ### Live (reference machine, 2026-11-03/06)
 
@@ -119,10 +121,10 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
    gate-specific budget).
 2. **Magpie npm publication** — `@magpie-community/middleware-privacy-gate` does not exist on npm
    yet. The registry entry is merged; the community workflow must publish the package.
-3. **Guide-mode MIME metadata** — [issue #795](https://github.com/magpie-community/plugins/issues/795):
-   `guideMime` validates a 100-character clip rather than the whole value, so a long base64-like
-   `media_type` can contribute a fake MIME prefix to the guide prompt. Still open; not a binary
-   egress bypass.
+3. ~~**Guide-mode MIME metadata** — [issue #795](https://github.com/magpie-community/plugins/issues/795)~~ —
+   **closed 2026-11-07** by `0.3.1`. `guideMime` was replaced with `guideMediaClass`: the guide prompt
+   now names a fixed coarse class (`image`, `pdf`, `office`, `audio`, `video`, `unknown`) and never
+   echoes a raw `media_type`, which was the reported metadata-validation defect.
 4. **`@shypie_privacy` `0.3.0` publication** — complete. All four packages are published and the
    release is tagged `v0.3.0`.
 5. **Legacy npm cleanup** — the external `@shypie_privacy/magpie-privacy-gate` package is still
@@ -143,7 +145,7 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
 - [x] Both marketplace listings merged.
 - [ ] Magpie community package published on npm.
 - [x] All four `@shypie_privacy` packages published at `0.3.0` and tagged.
-- [ ] Guide-mode MIME issue fixed/closed.
+- [x] Guide-mode MIME issue fixed/closed (upstream `0.3.1`, #795 closed 2026-11-07).
 - [ ] Legacy npm package rejected/deprecated.
 - [x] Tag `v0.3.0` pushed.
 - [ ] GitHub release created from `v0.3.0`.
@@ -154,8 +156,11 @@ This is a **best-effort privacy design, not an absolute guarantee**. The named r
   [docs/design.md](docs/design.md).
 - Install and verification: [docs/install.md](docs/install.md).
 - Release, stage IDs and marketplace state: [docs/publish.md](docs/publish.md).
-- Magpie submission: [PR #685](https://github.com/magpie-community/plugins/pull/685).
-- Magpie guide-MIME issue: [issue #795](https://github.com/magpie-community/plugins/issues/795).
+- Magpie submission: [PR #685](https://github.com/magpie-community/plugins/pull/685); in-tree `0.3.0`
+  release [PR #798](https://github.com/magpie-community/plugins/pull/798) and `0.3.1` guide-media fix
+  [PR #838](https://github.com/magpie-community/plugins/pull/838).
+- Magpie guide-MIME issue (closed by `0.3.1`):
+  [issue #795](https://github.com/magpie-community/plugins/issues/795).
 - Magpie engine timeout fail-open: [yetone/magpie#5305](https://github.com/yetone/magpie/issues/5305).
 - Security review (historical + addendum):
   [docs/research/security-review.md](docs/research/security-review.md).

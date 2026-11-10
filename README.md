@@ -29,11 +29,13 @@ All four ShyPie packages are now published at **`0.3.0`**: `pii-core`, `local-ex
 bundle, and the legacy Magpie package. The DSH bundle includes filter mode, image/PDF extraction and
 the composer switch. The Magpie middleware was **merged** into
 [magpie-community/plugins](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate)
-at `28108dd` (PR #685) as `@magpie-community/middleware-privacy-gate`; upstream is version `0.1.0`,
-while a `0.3.0` release branch is prepared in the ShyPie fork but not merged, and the community npm
-package is not published. The DSH catalog entry
-[PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged. Known open
-issue: [guide-mode MIME metadata validation #795](https://github.com/magpie-community/plugins/issues/795).
+at `28108dd` (PR #685) as `@magpie-community/middleware-privacy-gate`, and has since moved to
+**`0.3.1`** in-tree: `0.3.0` ([PR #798](https://github.com/magpie-community/plugins/pull/798)) added
+the branded bilingual docs, and `0.3.1` ([PR #838](https://github.com/magpie-community/plugins/pull/838),
+`d34785a`) made guide-mode prompts name a coarse media class instead of echoing a raw `media_type`,
+closing the guide-MIME metadata issue. The community npm package is still not published. The DSH
+catalog entry
+[PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged.
 [docs/publish.md](docs/publish.md) has the exact state.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
@@ -171,8 +173,8 @@ Measured on the reference machine (Windows 11, Node 24, no network):
 |---|---|
 | `pii-core` | 61 tests, 60 pass (1 platform skip); 50,125-char doc with 2,133 hits redacts in 11.5 ms; 300k-digit run 40 ms |
 | `local-extract` | 49/49; text PDF, Office, local OCR, and all documented block reasons |
-| `dsh-privacy-gate` | 154/154; activation check registers 3 listeners, 1 guard, 5 tools; attached-image OCR and PDF/file extraction are covered; end-to-end image OCR against real `winrt-ocr` takes about 2.5 s |
-| `packages/privacy-gate` (in-tree) | 62/62 with `bun test`; `bun scripts/check.mjs` validates the registry merged at `28108dd` |
+| `dsh-privacy-gate` | 153/153; activation check registers 3 listeners, 1 guard, 5 tools; attached-image OCR and PDF/file extraction are covered; end-to-end image OCR against real `winrt-ocr` takes about 2.5 s |
+| `packages/privacy-gate` (in-tree, upstream) | 67/67 at `0.3.1` with `bun test`; `bun scripts/check.mjs` validates the merged registry. **Not part of this repository** — it lives in magpie-community/plugins and is not run by `tests/run-all.mjs` |
 | `e2e` | 11/11 — synthetic invoice → local text → placeholders → gateway → mock vendor, with zero plaintext on the wire |
 
 The end-to-end suite uses only synthetic fixtures generated at test time. No real document, invoice,
@@ -216,11 +218,12 @@ LICENSE                   MIT
 
 Reference implementation, tested on one Windows machine. **Published: all four `@shypie_privacy`
 packages at `0.3.0`** — `pii-core`, `local-extract`, `dsh-privacy-gate`, legacy `magpie-privacy-gate`.
-The merged Magpie middleware upstream is `0.1.0` at `28108dd`; a `0.3.0` release branch is prepared
-in the ShyPie fork, not merged, and the community npm package is not published. The DSH catalog
+The merged Magpie middleware upstream is now **`0.3.1`** in-tree (`d34785a`, PRs #798 and #838); the
+community npm package is not published yet, so install it from a checkout. The DSH catalog
 [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged, and the
 Magpie registry entry is merged. The legacy `@shypie_privacy/magpie-privacy-gate` npm package is
-retired. Known open issue: [guide-mode MIME validation #795](https://github.com/magpie-community/plugins/issues/795).
+retired but not yet deprecated on npm. The guide-MIME issue
+([#795](https://github.com/magpie-community/plugins/issues/795)) is **closed**, fixed by `0.3.1`.
 Tag `v0.3.0` is pushed; the GitHub release can be created from it. The **live wiring** was exercised manually on
 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle installed from npm, two-turn DeepSeek and
 Copilot `gpt-6.1-sol` sessions through a live Magpie gateway, and a temporary model-allowlist
