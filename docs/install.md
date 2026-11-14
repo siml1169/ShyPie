@@ -33,6 +33,8 @@ git clone https://github.com/magpie-community/plugins
 magpie plugin add <clone>/packages/privacy-gate
 # or, for the in-tree 0.4.0 mirror:
 magpie plugin add <repo>/plugins/magpie-privacy-gate
+# or the published ShyPie-scoped package:
+magpie plugin add @shypie_privacy/magpie-privacy-gate
 
 # what may go to a remote model, what counts as local, and which agents bypass
 magpie plugin options privacy-gate '{"binaryPolicy":"fail","localModels":["ollama/*","lmstudio/*"],"localProviders":["ollama","lmstudio"],"allowModels":["deepseek/*","copilot/*","gemini/*"],"disabledAgents":[],"protectUnknownAgent":true,"blobBase64Chars":400,"blobHexChars":400}'
@@ -49,7 +51,9 @@ The middleware is **merged in-tree** in magpie-community/plugins ([`packages/pri
 its package is `@magpie-community/middleware-privacy-gate`, with **`0.4.0`** in review in
 [PR #1111](https://github.com/magpie-community/plugins/pull/1111). The registry entry is merged, but
 the npm package is not published yet, so use the checkout path above for now. This repository also
-mirrors the `0.4.0` source at `plugins/magpie-privacy-gate`; its legacy npm package is still `0.3.0`.
+mirrors the `0.4.0` source at `plugins/magpie-privacy-gate`; the
+`@shypie_privacy/magpie-privacy-gate@0.4.0` npm package is published, and the community package is
+still awaiting its first npm publish.
 A folder is loaded where it is, so no form copies anything into the Magpie config directory
 ([docs/publish.md](publish.md)).
 

@@ -20,6 +20,12 @@ Magpie's Agents page, and the agent-row action are included.
 
 ## Install
 
+From npm:
+
+```sh
+magpie plugin add @shypie_privacy/magpie-privacy-gate
+```
+
 From this repository:
 
 ```sh
@@ -32,10 +38,10 @@ The canonical community package, once published, is:
 magpie plugin add @magpie-community/middleware-privacy-gate
 ```
 
-The legacy `@shypie_privacy/magpie-privacy-gate` npm package is still at
-`0.3.0` and is no longer referenced by the canonical docs. This source tree is
-at `0.4.0` so the new per-agent controls can be reviewed and tested; it has not
-been published to npm as `0.4.0`.
+The `@shypie_privacy/magpie-privacy-gate@0.4.0` npm package is published and
+includes the per-agent page, panel and action. The canonical community package
+remains the copy Magpie installs once published; this npm package is the
+ShyPie-scoped mirror.
 
 ## Per-agent controls
 

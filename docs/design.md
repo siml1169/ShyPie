@@ -20,7 +20,7 @@ The workflow is a **combo of two plugins plus one shared core**:
 | `@shypie_privacy/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
 | `@shypie_privacy/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
 | `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** filter/optional redaction, local attachment extraction (images/PDF), `read_image`/binary guards, rehydrate-into-artifact |
-| `@magpie-community/middleware-privacy-gate` (in-tree; **0.4.0** in review via PR #1111; mirror at `plugins/magpie-privacy-gate@0.4.0`; legacy `@shypie_privacy/magpie-privacy-gate` npm at 0.3.0) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extractor; **per-agent page/panel/action controls** |
+| `@magpie-community/middleware-privacy-gate` (in-tree; **0.4.0** in review via PR #1111; mirror at `plugins/magpie-privacy-gate@0.4.0`; legacy `@shypie_privacy/magpie-privacy-gate` npm at 0.4.0) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extractor; **per-agent page/panel/action controls** |
 
 The split is forced by one hard fact and covers two different gaps:
 

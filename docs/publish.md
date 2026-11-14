@@ -9,7 +9,7 @@ Current state and repeatable checklist for the ShyPie packages and the two plugi
 | PII core | `@shypie_privacy/pii-core@0.3.0` — published | library only |
 | Local extractor | `@shypie_privacy/local-extract@0.3.0` — published | library only |
 | DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.3.0` — published | DSH catalog [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) **merged** |
-| Legacy Magpie middleware | npm `@shypie_privacy/magpie-privacy-gate@0.3.0` — published; ShyPie source mirror is `0.4.0` (unpublished) | retired in docs; source mirror synced |
+| Legacy Magpie middleware | npm `@shypie_privacy/magpie-privacy-gate@0.4.0` — published; canonical community package still in review | ShyPie mirror published; canonical remains community-controlled |
 | Community Magpie middleware | upstream **`0.4.0`** in review ([PR #1111](https://github.com/magpie-community/plugins/pull/1111)); npm not published | community registry [PR #685](https://github.com/magpie-community/plugins/pull/685) **merged** |
 
 The legacy `@shypie_privacy/magpie-privacy-gate@0.1.0` package is no longer referenced and is being
@@ -30,8 +30,9 @@ media class instead of echoing an untrusted `media_type`.
 
 ## 1. ShyPie npm releases
 
-All four ShyPie packages are published at `0.3.0`. `npm pack --dry-run` in each directory checks the
-`files` allowlist. The coordinated release is tagged `v0.3.0`.
+`pii-core`, `local-extract` and the DSH bundle are published at `0.3.0`; the ShyPie-scoped Magpie
+mirror is published at `0.4.0`. `npm pack --dry-run` in each directory checks the `files` allowlist.
+The coordinated `0.3.0` release is tagged `v0.3.0`.
 
 npm's staged publishing is the path used here:
 
@@ -87,9 +88,8 @@ magpie plugin
 ```
 
 The middleware has **72 canonical cases + 4 page/policy checks (76)** at `0.4.0`; `binaryPolicy: fail` is the default and `guide`
-is the withhold-and-prompt mode. Do not point users at the legacy ShyPie
-`plugins/magpie-privacy-gate` copy now that the in-tree package exists — that copy predates guide
-mode entirely (it has no `binaryPolicy` and no withholding path).
+is the withhold-and-prompt mode. The ShyPie-scoped `@shypie_privacy/magpie-privacy-gate@0.4.0` is published and now mirrors the
+0.4.0 source, but the canonical explanation and issue tracker remain the community package.
 
 ### Retiring the legacy npm package
 
@@ -129,6 +129,7 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 ## 4. Checklist
 
 - [x] `pii-core`, `local-extract`, DSH and legacy Magpie published at `0.3.0`.
+- [x] ShyPie-scoped Magpie mirror published at `0.4.0`.
 - [x] DSH bundle installs into a profile and runs a live session.
 - [x] Magpie middleware source, `cases.json` and test are in-tree.
 - [x] Magpie registry PR merged ([PR #685](https://github.com/magpie-community/plugins/pull/685), `28108dd`).
@@ -136,14 +137,14 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [ ] Magpie `0.4.0` per-agent controls merged (PR #1111).
 - [x] ShyPie mirror synchronized to `0.4.0` source.
 - [x] Local Magpie checks: `bun test packages/privacy-gate` (76/76) and `bun scripts/check.mjs`; mirror `npm test` (72/72).
-- [x] All four `@shypie_privacy` packages published at `0.3.0`.
+- [x] All four `@shypie_privacy` packages published: three at `0.3.0`, Magpie mirror at `0.4.0`.
 - [ ] Community Magpie package published to npm (not ShyPie-controlled).
 - [x] Guide-MIME issue fixed and closed ([#795](https://github.com/magpie-community/plugins/issues/795), by `0.3.1`).
 - [x] DSH catalog entry merged ([PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308)).
 - [x] DSH source `0.3.0` (filter mode, image/PDF extraction) published and tagged.
 - [x] `0.3.0` version bump applied to all ShyPie packages; the in-tree Magpie package has since
       reached `0.3.1` upstream.
-- [ ] Legacy `@shypie_privacy/magpie-privacy-gate` stage rejected and package deprecated.
+- [ ] Legacy `@shypie_privacy/magpie-privacy-gate` old `0.1.1` stage rejected and `0.3.0` deprecated.
 - [x] Tag `v0.3.0` created and pushed.
 - [ ] GitHub release created from tag `v0.3.0`.
 - [x] Previous release created from tag `v0.2.0`.
@@ -151,8 +152,8 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 ## 5. Version strategy
 
 `0.1.0` was the first coordinated release; the DSH bundle shipped `0.2.0` separately with the egress
-guard. `0.3.0` unifies all four ShyPie packages (filter mode, image/PDF extraction, composer switch,
-guide-mode-era gate) and is published. The community middleware is versioned separately by
+guard. `0.3.0` unified the original ShyPie packages; the ShyPie-scoped Magpie mirror has since moved
+to `0.4.0` for per-agent controls. The community middleware is versioned separately by
 magpie-community/plugins and has its own line: `0.1.0` (initial merge), `0.3.0` (branded bilingual
 docs), `0.3.1` (coarse guide media class). Those versions are released in-tree only; publishing them
 to npm is the community's call, not ShyPie's. The registries read versions from npm, so submission
