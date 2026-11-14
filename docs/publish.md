@@ -9,8 +9,8 @@ Current state and repeatable checklist for the ShyPie packages and the two plugi
 | PII core | `@shypie_privacy/pii-core@0.3.0` — published | library only |
 | Local extractor | `@shypie_privacy/local-extract@0.3.0` — published | library only |
 | DSH bundle | `@shypie_privacy/dsh-privacy-gate@0.3.0` — published | DSH catalog [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) **merged** |
-| Legacy Magpie middleware | `@shypie_privacy/magpie-privacy-gate@0.3.0` — published | retired in docs |
-| Community Magpie middleware | upstream **`0.3.1`** at `d34785a` (in-tree releases [PR #798](https://github.com/magpie-community/plugins/pull/798) and [PR #838](https://github.com/magpie-community/plugins/pull/838)); npm not published | community registry [PR #685](https://github.com/magpie-community/plugins/pull/685) **merged** |
+| Legacy Magpie middleware | npm `@shypie_privacy/magpie-privacy-gate@0.3.0` — published; ShyPie source mirror is `0.4.0` (unpublished) | retired in docs; source mirror synced |
+| Community Magpie middleware | upstream **`0.4.0`** in review ([PR #1111](https://github.com/magpie-community/plugins/pull/1111)); npm not published | community registry [PR #685](https://github.com/magpie-community/plugins/pull/685) **merged** |
 
 The legacy `@shypie_privacy/magpie-privacy-gate@0.1.0` package is no longer referenced and is being
 retired. Its staged `0.1.1` (`a9792716-3890-46a2-ae6f-c92e0fcf3aae`) will be rejected as part of the
@@ -25,7 +25,8 @@ media class instead of echoing an untrusted `media_type`.
 - The DSH catalog entry was merged as [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308).
 - The Magpie registry entry was merged in [PR #685](https://github.com/magpie-community/plugins/pull/685)
   at `28108dd`; the in-tree package has since been released at `0.3.0` ([PR #798](https://github.com/magpie-community/plugins/pull/798))
-  and `0.3.1` ([PR #838](https://github.com/magpie-community/plugins/pull/838), `d34785a`).
+  `0.3.1` ([PR #838](https://github.com/magpie-community/plugins/pull/838), `d34785a`), and `0.4.0`
+([PR #1111](https://github.com/magpie-community/plugins/pull/1111), in review).
 
 ## 1. ShyPie npm releases
 
@@ -85,7 +86,7 @@ magpie plugin options privacy-gate '{ … }'   # same JSON as config/magpie-gate
 magpie plugin
 ```
 
-The merged middleware has **67 cases** at `0.3.1`; `binaryPolicy: fail` is the default and `guide`
+The middleware has **72 canonical cases + 4 page/policy checks (76)** at `0.4.0`; `binaryPolicy: fail` is the default and `guide`
 is the withhold-and-prompt mode. Do not point users at the legacy ShyPie
 `plugins/magpie-privacy-gate` copy now that the in-tree package exists — that copy predates guide
 mode entirely (it has no `binaryPolicy` and no withholding path).
@@ -132,7 +133,9 @@ dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate
 - [x] Magpie middleware source, `cases.json` and test are in-tree.
 - [x] Magpie registry PR merged ([PR #685](https://github.com/magpie-community/plugins/pull/685), `28108dd`).
 - [x] Magpie package released in-tree at `0.3.1` (`d34785a`, PRs #798 and #838).
-- [x] Local Magpie checks: `bun test packages/privacy-gate` (67/67) and `bun scripts/check.mjs`.
+- [ ] Magpie `0.4.0` per-agent controls merged (PR #1111).
+- [x] ShyPie mirror synchronized to `0.4.0` source.
+- [x] Local Magpie checks: `bun test packages/privacy-gate` (76/76) and `bun scripts/check.mjs`; mirror `npm test` (72/72).
 - [x] All four `@shypie_privacy` packages published at `0.3.0`.
 - [ ] Community Magpie package published to npm (not ShyPie-controlled).
 - [x] Guide-MIME issue fixed and closed ([#795](https://github.com/magpie-community/plugins/issues/795), by `0.3.1`).

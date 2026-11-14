@@ -20,7 +20,7 @@ The workflow is a **combo of two plugins plus one shared core**:
 | `@shypie_privacy/pii-core` | anywhere (plain JS) | deterministic PII detection, keyed placeholders, restore, encrypted vault |
 | `@shypie_privacy/local-extract` | local machine | PDF → text, scan → OCR → text, Office → text; blocks when no local engine exists |
 | `@shypie_privacy/dsh-privacy-gate` | DeepSeek Harness (cordis host plugin) | **ingestion** filter/optional redaction, local attachment extraction (images/PDF), `read_image`/binary guards, rehydrate-into-artifact |
-| `@magpie-community/middleware-privacy-gate` (merged in-tree, now `0.3.1` at `d34785a`; legacy `@shypie_privacy/magpie-privacy-gate` no longer referenced) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extractor |
+| `@magpie-community/middleware-privacy-gate` (in-tree; **0.4.0** in review via PR #1111; mirror at `plugins/magpie-privacy-gate@0.4.0`; legacy `@shypie_privacy/magpie-privacy-gate` npm at 0.3.0) | Magpie gateway (moejs middleware) | **egress** firewall for what Magpie cannot mask: image/file/audio parts, blob smuggling, model allowlist; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extractor; **per-agent page/panel/action controls** |
 
 The split is forced by one hard fact and covers two different gaps:
 
@@ -90,7 +90,7 @@ durable fix is to redact at the point of ingestion.
 | T4 | **Plaintext persists locally** (session log, spill, export, journal) | unredacted tool results appended forever | redaction happens *before* append for document/tool ingress; user-typed prompts are redacted in the model-visible log but the raw prompt is recorded by the harness before any supported seam — **named residual** (`research/dsh-hooks.md`) |
 | T5 | **A bypass tool channel** (`pwsh`, MCP tools, web fetch) | any tool output enters context unredacted | Gate 1 is tool-agnostic: every `tools/post-execute` result is redacted |
 | T6 | **Blob smuggling** — document bytes pasted as base64 text | text masking cannot parse base64 | `BLOB` detector blocks at both gates |
-| T7 | **A different agent bypasses DSH** (Cursor, Copilot, Claude Code all share the Magpie gateway) | those agents have no DSH gate | Magpie middleware applies to every agent behind the gateway |
+| T7 | **A different agent bypasses DSH** (Cursor, Copilot, Claude Code all share the Magpie gateway) | those agents have no DSH gate | Magpie middleware applies to every agent behind the gateway; the operator can explicitly bypass one agent from the per-agent page, panel or row action, and every other agent remains protected |
 | T8 | **Masker is off / misconfigured / fails** | silent pass-through | DSH gate is unconditional; Magpie masking fails closed (503), and its middleware additionally rejects unmaskable parts |
 | T9 | **The detector misses a value** | any detector has false negatives | deterministic detectors for structured PII; free-text names need a local model or a known-words list — documented, not pretended away |
 | T10 | **An agent rehydrates then exfiltrates** | `privacy_rehydrate` writes a real value to an artifact | rehydrate targets a configured output path only; the artifact is re-redacted if read back; phase-2 shell egress guard |
@@ -343,6 +343,14 @@ plugin, no I/O — it runs in moejs inside the gateway process and is loaded on 
 It exists to close the gap Magpie's masking cannot close, and to cover every *other* agent that uses
 the same gateway (Copilot, Cursor, Claude Code, scripts):
 
+**Per-agent controls (`0.4.0`).** The middleware reads Magpie's `ctx.agent` and applies
+`disabledAgents` / `protectUnknownAgent` in both `onRequest` and `onProvider`. Every agent is
+protected by default; only explicit ids or globs bypass the gate, and an unclassified request stays
+protected unless the operator opts out. A plugin page, an Agents-page panel and an agent-row action
+all edit the same options. The page preserves raw/glob policy entries verbatim, seeds exact custom
+disabled ids so their bypass is visible, and merges saves into freshly read options (reporting a
+conflict instead of overwriting a concurrent change).
+
 | Rule | Hook | Decision |
 |---|---|---|
 | Non-text content part (`image_url`, `input_image`, `image`, `file`, `input_file`, `document`, `audio`, `video`) and model not in `localModels` | `onRequest` | `ctx.reject(403, …)` in `binaryPolicy: fail` (default) |
@@ -351,6 +359,7 @@ the same gateway (Copilot, Cursor, Claude Code, scripts):
 | Model not matching `allowModels` | `onRequest` | `ctx.reject(403, …)`; a malformed `allowModels` value refuses every request |
 | Vendor-sealed signature/id field inside its vendor block (Anthropic thinking `signature`, Responses reasoning `encrypted_content`, Gemini part `thoughtSignature`, vendor item `id`) | `onRequest` | exempt from the blob scan; the same key in tool arguments or message text is still scanned |
 | Binary part on a provider not declared local (`onProvider`, where the provider id is known) | `onProvider` | content blanked (cannot reject there) |
+| Agent in `disabledAgents` (id or glob) | `onRequest`, `onProvider` | pass through unchanged — an explicit per-agent bypass |
 | Everything else | `onRequest` | pass through untouched |
 | Counters only (provider, model, status, blocked) | `onUsage` | one bounded log line |
 
@@ -442,7 +451,7 @@ Every row is a path where data *would* move; the design's answer is in the last 
 ### 9.2 Magpie
 
 ```bash
-# merged in magpie-community/plugins at 0.3.1; npm package not published yet
+# in-tree 0.4.0 in review (PR #1111); npm package not published yet
 git clone https://github.com/magpie-community/plugins
 magpie plugin add <clone>/packages/privacy-gate
 magpie plugin options privacy-gate '{
@@ -509,7 +518,7 @@ node tests/run-all.mjs                   # every suite, one summary
 | PDF text extraction, Office extraction, OCR, every reachable block reason | `packages/local-extract/test/` | **49/49 pass**; text layer 93 chars; scan → `winrt-ocr`, ~0.65–0.78 s for 2 pages, 2.9–3.3 s full CLI; all 8 block reasons measured |
 | ShyPie Filter: local attachment extraction/OCR (image + PDF), configurable filter/mask text policy, BLOB block, guards, fail-closed egress guard with stable error code and incremental scan, 5 tools | `plugins/dsh-privacy-gate/test/` | **153/153 pass**; full repo suite green |
 | DSH Gate 3: user text follows `textPolicy` (filter default / optional local mask), attached images/PDFs replaced by locally extracted text (or the step rejected), raw-prompt residual proved | `plugins/dsh-privacy-gate/test/`, `research/dsh-hooks.md` §5, §5b | automated logic; image/PDF → text path exercised against real attachment bytes, the real `winrt-ocr` engine and a real PDF extractor 2026-11-05/06 (live GUI turn not exercised) |
-| Magpie middleware: image/file/audio rejection or guide withholding, blob rejection, allowlist, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `magpie-community/plugins/packages/privacy-gate/` (**upstream, not this repo**) | **67/67 pass** in the in-tree suite at `0.3.1` (`d34785a`); guide-mode media-class and malformed-option cases included; `bun scripts/check.mjs` green |
+| Magpie middleware: image/file/audio rejection or guide withholding, blob rejection, allowlist, per-agent bypass, vendor-signature exemption, fail-closed on unreadable bodies, all four protocol shapes, standard JS only | `magpie-community/plugins/packages/privacy-gate/` (**upstream, not this repo**); mirror at `plugins/magpie-privacy-gate/` | **72 middleware cases + 4 page/policy checks (76)** at `0.4.0`; own mirror runs the 72 canonical cases with `npm test`; `bun scripts/check.mjs` green upstream |
 | End-to-end: synthetic invoice → local text → placeholders → request body has no plaintext → gateway allow/reject → reply restores | `tests/e2e/` | **11/11 pass**, incl. the blocked-scan path and the OS-OCR path |
 | The bundle installs and is live in a real DSH profile | — | **verified manually 2026-11-03**: npm install into the `headless` and `desktop` profiles; two-turn DeepSeek session and a two-turn Copilot `gpt-6.1-sol` session through the live gateway; temporary model-allowlist block rejected a turn |
 | The middleware runs inside a real Magpie gateway | — | **verified manually 2026-11-03**: loaded in the live gateway, hooks listed, image part 403, long-token block confirmed; Copilot-routed OpenAI Responses `encrypted_content` (5,208 chars) and Anthropic thinking `signature` (892 chars) replays both returned HTTP 200; a temporary model allowlist returned 403 for both protocols |

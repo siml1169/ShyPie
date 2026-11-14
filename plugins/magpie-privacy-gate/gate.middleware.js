@@ -10,10 +10,10 @@
 // would be wrong. What it owns is structure:
 //
 //   1. a content part the masker cannot mask (image / file / document / audio /
-//      video, in any of the four agent APIs) is turned away with 422 for every
+//      video, in any of the four agent APIs) is turned away with 403 for every
 //      model that is not explicitly allowlisted as LOCAL;
 //   2. an encoded blob (base64 / base64url / hex / data URI / PDF or ZIP magic)
-//      smuggled through a TEXT field is turned away with 422;
+//      smuggled through a TEXT field is turned away with 403;
 //   3. a model allowlist (globs) turns away everything else, naming the model and
 //      the policy, never the content;
 //   4. a request this gate cannot fully inspect (unknown protocol, unreadable
@@ -34,12 +34,20 @@
 //
 // OPTIONS (ctx.options, set with `magpie plugin options <name> '<json>'`)
 //   allowModels: string[]        globs; [] (default) allows every model. Anything
-//                                else is rejected with 422 naming the model.
+//                                else is rejected with 403 naming the model.
 //   localModels: string[]        globs; models that may RECEIVE binary/document
 //                                parts, because the endpoint is on this machine or
 //                                the local network (Ollama, LM Studio, ...). []
 //                                (default) means every binary part is blocked.
 //                                Encoded blobs in text are blocked even here.
+//   binaryPolicy: 'fail'|'guide'  fail (default) returns 403 for a binary part; guide
+//                                withholds every binary part and injects a local-tool prompt.
+//   guideTools: string[]          tool names advertised to the model in guide mode.
+//   disabledAgents: string[]      Magpie agent ids that bypass this gate completely.
+//                                [] (default) protects every agent. Only explicit ids
+//                                (or globs) are bypassed; new agents stay protected.
+//   protectUnknownAgent: bool    true (default). When false, a request whose
+//                                ctx.agent is empty is allowed through unchanged.
 //   allowUnknownProtocol: bool   false (default). When false, a request whose
 //                                ctx.protocol is not chat/responses/anthropic/
 //                                gemini is rejected (the gate cannot classify it).
@@ -59,8 +67,7 @@
 //   logEveryRows: number         50. Emit one usage line every N usage rows.
 //
 // The hooks below return the body unchanged when they allow it, and otherwise
-// return the value of ctx.reject(422, message). 422 keeps DSH from reporting an auth failure:
-// it maps 401/403 to AUTH, which the client renders as API key is invalid. No message ever contains request
+// return the value of ctx.reject(403, message). No message ever contains request
 // content: only a part TYPE, a model id, a protocol name and counters.
 
 // ---------------------------------------------------------------------------
@@ -108,6 +115,9 @@ var DEFAULTS = {
   allowModels: [],
   localModels: [],
   localProviders: [],
+  binaryPolicy: 'fail',
+  disabledAgents: [],
+  protectUnknownAgent: true,
   allowUnknownProtocol: false,
   // A one-page invoice PDF is ~1-3 KB: ~1.4-4 k base64 chars, ~2-6 k hex chars. The
   // threshold is deliberately below that, because a smaller encoded document was a real
@@ -173,6 +183,36 @@ function strList(opts, key) {
     if (typeof v[i] === "string" && v[i].length > 0 && v[i].length < 200) out.push(v[i]);
   }
   return out;
+}
+
+// The agent id magpie classified for this request. It is host-supplied metadata,
+// never a User-Agent string, so it is safe to use for policy selection.
+function agentOf(ctx) {
+  try {
+    return ctx && typeof ctx.agent === "string" ? clip(ctx.agent, 120) : "";
+  } catch (e) {
+    return "";
+  }
+}
+
+function agentEnabled(opts, ctx) {
+  var agent = agentOf(ctx);
+  if (agent === "") return boolOpt(opts, "protectUnknownAgent", DEFAULTS.protectUnknownAgent);
+  return !matchesAny(opts.disabledAgents, agent);
+}
+
+function allowModelsOpt(opts) {
+  var raw = opts.allowModels;
+  if (raw === undefined) return { list: [], invalid: false };
+  if (!Array.isArray(raw) || raw.length > 200) return { list: [], invalid: true };
+  var list = [];
+  for (var i = 0; i < raw.length; i++) {
+    if (typeof raw[i] !== "string" || raw[i].length === 0 || raw[i].length >= 200) {
+      return { list: [], invalid: true };
+    }
+    list.push(raw[i]);
+  }
+  return { list: list, invalid: false };
 }
 
 // Glob -> RegExp ("*" spans anything, "?" one character). Anchored, so a rule
@@ -551,12 +591,25 @@ function modelOf(body, ctx) {
 // the documented default: "a middleware runs with no options until you save
 // some"). Resolving the defaults once here keeps the fail-closed behaviour of an
 // unconfigured gate: no localModels means every binary part is rejected.
+function policyOpt(source, name, fallback) {
+  if (!has(source, name)) return fallback;
+  var value = source[name];
+  if (value === "fail" || value === "guide") return value;
+  return fallback;
+}
+
 function resolvedOptions(raw) {
   var source = raw && typeof raw === "object" ? raw : {};
+  var allow = allowModelsOpt(source);
   return {
-    allowModels: strList(source, "allowModels"),
+    allowModels: allow.list,
+    allowModelsInvalid: allow.invalid,
     localModels: strList(source, "localModels"),
     localProviders: strList(source, "localProviders"),
+    binaryPolicy: policyOpt(source, "binaryPolicy", DEFAULTS.binaryPolicy),
+    disabledAgents: strList(source, "disabledAgents"),
+    protectUnknownAgent: boolOpt(source, "protectUnknownAgent", DEFAULTS.protectUnknownAgent),
+    guideTools: strList(source, "guideTools"),
     allowUnknownProtocol: boolOpt(source, "allowUnknownProtocol", DEFAULTS.allowUnknownProtocol),
     blobBase64Chars: numOpt(source, "blobBase64Chars", DEFAULTS.blobBase64Chars, 64, 1000000),
     blobHexChars: numOpt(source, "blobHexChars", DEFAULTS.blobHexChars, 64, 1000000),
@@ -569,19 +622,22 @@ function resolvedOptions(raw) {
 }
 
 function gateOptions(ctx) {
-  if (ctx && ctx.options && typeof ctx.options === "object") return resolvedOptions(ctx.options);
-  return resolvedOptions(null);
+  try {
+    if (ctx && ctx.options && typeof ctx.options === "object") return resolvedOptions(ctx.options);
+    return resolvedOptions(null);
+  } catch (e) {
+    // Never let a typo in options disable the gate: fall back to the strict defaults.
+    return resolvedOptions(null);
+  }
 }
 
 function usageOptions(options) {
-  return resolvedOptions(options);
+  try {
+    return resolvedOptions(options);
+  } catch (e) {
+    return resolvedOptions(null);
+  }
 }
-
-// Appended to the two content blocks: the usual cause is a part still sitting in the
-// conversation history, which the agent replays on every turn.
-var HISTORY_HINT =
-  " extract it to text first (privacy_extract / privacy_ocr). A part earlier in this" +
-  " conversation is replayed every turn, so remove it or start a new session. Nothing was sent.";
 
 function blocked(code, message) {
   return { ok: false, block: { code: code, message: message } };
@@ -606,6 +662,13 @@ function inspect(body, ctx) {
           "\" cannot be classified by this gate; nothing was sent."
       );
     }
+  }
+
+  if (opts.allowModelsInvalid) {
+    return blocked(
+      "OPTION",
+      "privacy-gate: allowModels is present but is not an array of non-empty strings; nothing was sent."
+    );
   }
 
   var allowModels = opts.allowModels;
@@ -646,7 +709,7 @@ function inspect(body, ctx) {
     return blocked(
       "BINARY_PART",
       "privacy-gate: a content part of type \"" + clip(state.binary.kind, 40) +
-        "\" cannot be masked locally;" + HISTORY_HINT
+        "\" cannot be masked locally; extract it to text first (Settings -> Privacy masks text only). Nothing was sent."
     );
   }
 
@@ -656,7 +719,7 @@ function inspect(body, ctx) {
     return blocked(
       "BLOB",
       "privacy-gate: a text field carries an encoded blob (" + state.blob.code +
-        ") that cannot be masked locally;" + HISTORY_HINT
+        ") that cannot be masked locally; extract it to text first. Nothing was sent."
     );
   }
 
@@ -748,9 +811,7 @@ function rejectOrBlank(body, ctx, block, opts) {
       counters.rejected++;
       // In magpie's host, ctx.reject performs the rejection and returns nothing.
       // Calling it is the rejection; do not treat "nothing returned" as a failure.
-      // 422, not 403: DSH maps 401/403 to the AUTH failure code, which the UI renders as
-      // the useless API key is invalid. A policy rejection is not an auth failure.
-      ctx.reject(422, block.message);
+      ctx.reject(403, block.message);
       return undefined;
     }
   } catch (e) {
@@ -761,6 +822,173 @@ function rejectOrBlank(body, ctx, block, opts) {
   return sanitize(body, ctx);
 }
 
+
+// ---------------------------------------------------------------------------
+// Guide policy: withhold bytes, keep enough metadata for the model to choose a tool
+// ---------------------------------------------------------------------------
+
+function guideMimeCandidate(node) {
+  var candidates = [
+    node.media_type, node.mediaType, node.mime_type, node.mimeType,
+    node.source && (node.source.media_type || node.source.mediaType),
+    node.inlineData && (node.inlineData.mimeType || node.inlineData.mime_type),
+    node.inline_data && (node.inline_data.mimeType || node.inline_data.mime_type),
+    node.file && (node.file.mime_type || node.file.mimeType),
+    node.attachment && node.attachment.mediaType
+  ];
+  for (var i = 0; i < candidates.length; i++) {
+    if (typeof candidates[i] === 'string' && candidates[i].length > 0) {
+      return candidates[i];
+    }
+  }
+  var url = typeof node.image_url === 'string' ? node.image_url : node.image_url && node.image_url.url;
+  if (typeof url !== 'string' && typeof node.input_image === 'string') url = node.input_image;
+  if (typeof url === 'string' && url.indexOf('data:') === 0) {
+    var comma = url.indexOf(',');
+    if (comma > 5) {
+      var mime = url.slice(5, comma).split(';')[0];
+      if (mime.length > 0) return mime;
+    }
+  }
+  return '';
+}
+
+// The guide prompt only needs a coarse class. Never echo raw media_type: it is
+// untrusted metadata and exact subtypes/parameters are not useful for tool choice.
+function guideMediaClass(node, kind) {
+  var candidate = guideMimeCandidate(node);
+  // Do not normalize an unbounded untrusted string outside the scan budget.
+  // 256 is above the longest usable type/subtype+parameters prefix and keeps
+  // this step O(1) for oversized metadata.
+  if (candidate.length > 256) candidate = '';
+  candidate = candidate.split(';')[0].trim().toLowerCase();
+  if (candidate.indexOf('image/') === 0) return 'image';
+  if (candidate === 'application/pdf' || candidate === 'application/x-pdf') return 'pdf';
+  if (candidate === 'application/msword' || candidate === 'application/vnd.ms-excel' ||
+    candidate === 'application/vnd.ms-powerpoint' ||
+    candidate.indexOf('application/vnd.openxmlformats-officedocument.') === 0) return 'office';
+  if (candidate.indexOf('audio/') === 0) return 'audio';
+  if (candidate.indexOf('video/') === 0) return 'video';
+  if (kind === 'image' || kind === 'image_url' || kind === 'input_image') return 'image';
+  if (kind === 'audio' || kind === 'input_audio') return 'audio';
+  if (kind === 'video' || kind === 'input_video') return 'video';
+  return 'unknown';
+}
+
+function guideBytes(node) {
+  var candidates = [node.bytes, node.size, node.file_size, node.fileSize, node.sizeBytes];
+  for (var i = 0; i < candidates.length; i++) {
+    if (typeof candidates[i] === 'number' && isFinite(candidates[i]) && candidates[i] >= 0) return Math.floor(candidates[i]);
+  }
+  var data = node.data || node.source && node.source.data;
+  if (typeof data !== 'string' && node.inlineData) data = node.inlineData.data;
+  if (typeof data !== 'string' && node.inline_data) data = node.inline_data.data;
+  if (typeof data === 'string') {
+    var b64 = data.indexOf('base64,') >= 0 ? data.slice(data.indexOf('base64,') + 7) : data;
+    if (b64.length > 0) return Math.floor(b64.length * 0.75);
+  }
+  var url = typeof node.image_url === 'string' ? node.image_url : node.image_url && node.image_url.url;
+  if (typeof url !== 'string' && typeof node.input_image === 'string') url = node.input_image;
+  if (typeof url === 'string' && url.indexOf(';base64,') >= 0) return Math.floor(url.slice(url.indexOf(';base64,') + 8).length * 0.75);
+  return null;
+}
+
+function guideText(node, kind, opts) {
+  var media = guideMediaClass(node, kind);
+  var bytes = guideBytes(node);
+  var bits = ['type ' + kind];
+  bits.push('media ' + media);
+  if (bytes !== null) bits.push('bytes ' + bytes);
+  var text = '[A binary attachment was withheld locally and was NOT sent to you (' + bits.join('; ') +
+    '). Do not claim to have seen it. First ask how the user/agent can process or read it locally';
+  if (opts.guideTools.length > 0) text += '; available local tools: ' + opts.guideTools.join(', ');
+  return text + '.]';
+}
+
+function guidePart(protocol, text) {
+  if (protocol === 'gemini') return { text: text };
+  if (protocol === 'responses') return { type: 'input_text', text: text };
+  return { type: 'text', text: text };
+}
+
+// One bounded, site-aware pass: the same protocol positions the inspector uses,
+// every visited value counts toward maxNodes, and text is blob-scanned without
+// the old extra inspect() pass over the rewritten body.
+function guideWalk(value, site, depth, state, opts, protocol) {
+  if (state.limited !== null || state.blob !== null) return null;
+  if (depth > opts.maxDepth) {
+    state.limited = 'depth';
+    return null;
+  }
+  state.nodes++;
+  if (state.nodes > opts.maxNodes) {
+    state.limited = 'nodes';
+    return null;
+  }
+  if (typeof value === 'string') {
+    scanText(value, state, opts);
+    return state.blob === null ? value : null;
+  }
+  if (value === null || typeof value !== 'object') return value;
+  if (Array.isArray(value)) {
+    if (value.length > opts.maxNodes - state.nodes) {
+      state.limited = 'nodes';
+      return null;
+    }
+    var itemSite = site;
+    if (site === SITE_MESSAGES) itemSite = SITE_MESSAGE;
+    else if (site === SITE_RESPONSES_INPUT) itemSite = SITE_RESPONSES_ITEM;
+    else if (site === SITE_GEMINI_CONTENTS) itemSite = SITE_GEMINI_CONTENT;
+    var reverse = site === SITE_MESSAGES || site === SITE_RESPONSES_INPUT || site === SITE_GEMINI_CONTENTS;
+    var out = [];
+    for (var i = 0; i < value.length; i++) {
+      var index = reverse ? value.length - 1 - i : i;
+      var rewrittenItem = guideWalk(value[index], itemSite, depth + 1, state, opts, protocol);
+      if (state.limited !== null || state.blob !== null) return null;
+      out[index] = rewrittenItem;
+    }
+    return out;
+  }
+  var found = binaryOf(value, isPartSite(site));
+  if (found !== null) return guidePart(protocol, guideText(value, found.kind, opts));
+  var sealed = sealedFields(value, site);
+  var role = typeof value.role === 'string' ? value.role : '';
+  var keys = Object.keys(value);
+  if (keys.length > opts.maxNodes - state.nodes) {
+    state.limited = 'nodes';
+    return null;
+  }
+  if (site === SITE_ROOT) {
+    var contentKey = (protocol === 'anthropic' || protocol === 'chat') ? 'messages' : protocol === 'responses' ? 'input' : protocol === 'gemini' ? 'contents' : '';
+    var at = contentKey ? keys.indexOf(contentKey) : -1;
+    if (at > 0) { keys.splice(at, 1); keys.unshift(contentKey); }
+  }
+  var copy = {};
+  for (var j = 0; j < keys.length; j++) {
+    var key = keys[j];
+    if (site === SITE_ROOT && SKIP_KEY[key]) { copy[key] = value[key]; continue; }
+    var child = value[key];
+    if (sealed !== null && sealed[key] && typeof child === 'string') { copy[key] = child; continue; }
+    var rewritten = guideWalk(child, childSite(protocol, site, key, child, role), depth + 1, state, opts, protocol);
+    if (state.limited !== null || state.blob !== null) return null;
+    copy[key] = rewritten;
+  }
+  return copy;
+}
+
+function guideBody(body, ctx, opts) {
+  try {
+    var protocol = ctx && typeof ctx.protocol === 'string' ? ctx.protocol : '';
+    var state = { nodes: 0, chars: 0, blob: null, limited: null, degraded: false };
+    var guided = guideWalk(body, SITE_ROOT, 0, state, opts, protocol);
+    if (state.limited !== null || state.blob !== null) return null;
+    return guided;
+  } catch (e) {
+    return null;
+  }
+}
+
+
 // ---------------------------------------------------------------------------
 // Hooks
 // ---------------------------------------------------------------------------
@@ -769,6 +997,7 @@ function rejectOrBlank(body, ctx, block, opts) {
 // fail-closed outcome available here; returning nothing would send the body.
 export function onRequest(body, ctx) {
   var opts = gateOptions(ctx);
+  if (!agentEnabled(opts, ctx)) return body;
   counters.requests++;
   var decision;
   try {
@@ -780,6 +1009,14 @@ export function onRequest(body, ctx) {
     );
   }
   if (decision.ok === true) return body;
+  if (decision.block && decision.block.code === "BINARY_PART" && opts.binaryPolicy === "guide") {
+    var guided = guideBody(body, ctx, opts);
+    if (guided !== null) {
+      logLine("privacy-gate: guided binary parts locally; no bytes sent", opts);
+      return guided;
+    }
+    logLine("privacy-gate: guide rewrite failed; rejecting binary request", opts);
+  }
   return rejectOrBlank(body, ctx, decision.block, opts);
 }
 
@@ -830,6 +1067,7 @@ function findFirstBinary(value, partContext, depth, state, opts, atRoot) {
 // middleware's injection, or a timed-out onRequest could still put bytes here.
 export function onProvider(body, ctx) {
   var opts = gateOptions(ctx);
+  if (!agentEnabled(opts, ctx)) return body;
   var decision;
   try {
     decision = inspect(body, ctx);

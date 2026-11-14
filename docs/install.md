@@ -26,12 +26,16 @@ requires only Node and the local binaries above.
 ## 1. Magpie: structural egress firewall + text masking
 
 ```bash
-# The middleware is merged in magpie-community/plugins but not on npm yet.
+# The middleware is in-tree in magpie-community/plugins but not on npm yet.
+# The 0.4.0 per-agent controls are in PR #1111; this repository also mirrors
+# the same source at plugins/magpie-privacy-gate.
 git clone https://github.com/magpie-community/plugins
 magpie plugin add <clone>/packages/privacy-gate
+# or, for the in-tree 0.4.0 mirror:
+magpie plugin add <repo>/plugins/magpie-privacy-gate
 
-# what may go to a remote model, and what counts as local
-magpie plugin options privacy-gate '{"binaryPolicy":"fail","localModels":["ollama/*","lmstudio/*"],"localProviders":["ollama","lmstudio"],"allowModels":["deepseek/*","copilot/*","gemini/*"],"blobBase64Chars":400,"blobHexChars":400}'
+# what may go to a remote model, what counts as local, and which agents bypass
+magpie plugin options privacy-gate '{"binaryPolicy":"fail","localModels":["ollama/*","lmstudio/*"],"localProviders":["ollama","lmstudio"],"allowModels":["deepseek/*","copilot/*","gemini/*"],"disabledAgents":[],"protectUnknownAgent":true,"blobBase64Chars":400,"blobHexChars":400}'
 
 # confirm it is listed and on
 magpie plugin
@@ -42,10 +46,11 @@ The canonical option names, defaults and their meaning are in
 A copy of the example options lives in [`config/magpie-gate.options.json`](../config/magpie-gate.options.json).
 
 The middleware is **merged in-tree** in magpie-community/plugins ([`packages/privacy-gate`](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate));
-its package is `@magpie-community/middleware-privacy-gate`, now at **`0.3.1`** in-tree. The registry
-entry is merged, but the npm package is not published yet, so use the checkout path above for now. The legacy
-`@shypie_privacy/magpie-privacy-gate` package is no longer referenced and is retired. A folder is
-loaded where it is, so neither form copies anything into the Magpie config directory
+its package is `@magpie-community/middleware-privacy-gate`, with **`0.4.0`** in review in
+[PR #1111](https://github.com/magpie-community/plugins/pull/1111). The registry entry is merged, but
+the npm package is not published yet, so use the checkout path above for now. This repository also
+mirrors the `0.4.0` source at `plugins/magpie-privacy-gate`; its legacy npm package is still `0.3.0`.
+A folder is loaded where it is, so no form copies anything into the Magpie config directory
 ([docs/publish.md](publish.md)).
 
 Then turn text masking on — **Settings → Privacy**, or `~/.config/magpie/settings.json`:
@@ -59,6 +64,16 @@ Then turn text masking on — **Settings → Privacy**, or `~/.config/magpie/set
   "redactModelName": "astrlink-guard"
 }
 ```
+
+
+### Per-agent controls
+
+With the `0.4.0` middleware, open **Settings → Plugins → Installed → ShyPie Filter** or use the
+**ShyPie protection** card at the bottom of the **Agents** page. Every agent is protected by default;
+turning a switch off writes that agent id to `disabledAgents` and bypasses the gate for it. The
+page also lists raw/glob policy entries read-only and preserves them on save. Right-click an agent
+and choose **ShyPie protection** to open the page focused on that agent. A bypassed agent is
+intentionally unprotected, so use it only for traffic you trust.
 
 `astrlink-guard` is a local model (≈39 MB download) that runs on this computer and is what lets
 Magpie mask names and addresses in free text. Do not replace it with a hosted model — that would be

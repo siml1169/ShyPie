@@ -1,8 +1,8 @@
 {
   "name": "@shypie_privacy/magpie-privacy-gate",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "type": "module",
-  "description": "Magpie gateway middleware: the structural egress gate for the ShyPie privacy-first workflow with DeepSeek Harness. Does not mask text (that stays Magpie's Privacy masking); it turns away image, file and audio parts, encoded blobs and models outside the allowlist when Magpie cannot mask them locally, and fails closed on anything it cannot inspect.",
+  "description": "Magpie gateway middleware: the structural egress gate for the ShyPie privacy-first workflow with DeepSeek Harness, with per-agent controls and a graphical page.",
   "keywords": [
     "magpie",
     "magpie-plugin",
@@ -32,15 +32,50 @@
   },
   "files": [
     "gate.middleware.js",
-    "README.md"
+    "README.md",
+    "page"
   ],
   "magpie": {
     "middleware": "./gate.middleware.js",
     "name": "ShyPie privacy gate",
+    "page": {
+      "title": "ShyPie Filter",
+      "titles": {
+        "zh": "ShyPie 防护"
+      },
+      "file": "page/index.html",
+      "icon": "page/icon.svg"
+    },
+    "panels": [
+      {
+        "slot": "agents",
+        "file": "page/agents-panel.html",
+        "title": "ShyPie protection",
+        "titles": {
+          "zh": "ShyPie 防护"
+        }
+      }
+    ],
+    "actions": [
+      {
+        "id": "shypie-protection",
+        "menu": "agent",
+        "title": "ShyPie protection",
+        "titles": {
+          "zh": "ShyPie 防护"
+        }
+      }
+    ],
+    "permissions": [],
     "options": {
       "allowModels": [],
       "localModels": [],
       "localProviders": [],
+      "binaryPolicy": "fail",
+      "disabledAgents": [],
+      "protectUnknownAgent": true,
+      "extraAgents": [],
+      "guideTools": [],
       "allowUnknownProtocol": false,
       "blobBase64Chars": 400,
       "blobHexChars": 400,
@@ -50,5 +85,8 @@
       "logMaxLines": 40,
       "logEveryRows": 50
     }
+  },
+  "scripts": {
+    "test": "node test/harness.mjs"
   }
 }

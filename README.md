@@ -21,22 +21,21 @@ This repository is a reference implementation of a two-plugin combo for
 | Component | npm package | Role |
 |---|---|---|
 | [`plugins/dsh-privacy-gate`](plugins/dsh-privacy-gate) | `@shypie_privacy/dsh-privacy-gate` | **ShyPie Filter** DSH host bundle: extracts attached images/PDFs locally, keeps tool/document text local by default, guards binary reads, and enforces a fail-closed `llm/stream` egress guard |
-| [Magpie middleware (merged in-tree)](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate) | `@magpie-community/middleware-privacy-gate` | Magpie gateway middleware: rejects or withholds content Magpie cannot mask (images, files, encoded blobs) for non-local models; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extraction tool |
+| [Magpie middleware (in-tree)](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate) | `@magpie-community/middleware-privacy-gate` | Magpie gateway middleware: rejects or withholds content Magpie cannot mask (images, files, encoded blobs) for non-local models; `binaryPolicy: guide` withholds bytes and asks the model to choose a local extraction tool; per-agent page/panel/action controls |
 | [`packages/pii-core`](packages/pii-core) | `@shypie_privacy/pii-core` | Zero-dependency detector + keyed-placeholder library shared by both plugins |
 | [`packages/local-extract`](packages/local-extract) | `@shypie_privacy/local-extract` | Local-only PDF / Office / scan → text CLI with fail-closed blocking |
 
-All four ShyPie packages are now published at **`0.3.0`**: `pii-core`, `local-extract`, the DSH
+All four ShyPie packages are published on npm at **`0.3.0`**: `pii-core`, `local-extract`, the DSH
 bundle, and the legacy Magpie package. The DSH bundle includes filter mode, image/PDF extraction and
-the composer switch. The Magpie middleware was **merged** into
+the composer switch. The Magpie middleware is in-tree at
 [magpie-community/plugins](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate)
-at `28108dd` (PR #685) as `@magpie-community/middleware-privacy-gate`, and has since moved to
-**`0.3.1`** in-tree: `0.3.0` ([PR #798](https://github.com/magpie-community/plugins/pull/798)) added
-the branded bilingual docs, and `0.3.1` ([PR #838](https://github.com/magpie-community/plugins/pull/838),
-`d34785a`) made guide-mode prompts name a coarse media class instead of echoing a raw `media_type`,
-closing the guide-MIME metadata issue. The community npm package is still not published. The DSH
-catalog entry
-[PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged.
-[docs/publish.md](docs/publish.md) has the exact state.
+as `@magpie-community/middleware-privacy-gate`; `0.3.0` and `0.3.1` delivered the branded docs and the
+coarse guide media class, and **`0.4.0`** is in review in
+[PR #1111](https://github.com/magpie-community/plugins/pull/1111) with per-agent controls and the
+page/panel/action UI. The community npm package is still not published. The DSH catalog entry
+[PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged. This
+repository mirrors the `0.4.0` middleware source under `plugins/magpie-privacy-gate`; the npm legacy
+package is still `0.3.0`. [docs/publish.md](docs/publish.md) has the exact state.
 
 It is a **privacy-first workflow**, not a guarantee: what it protects, and what it cannot, is
 documented precisely in [docs/design.md](docs/design.md) and summarised below.
@@ -142,20 +141,24 @@ flowchart TB
 ## Quick start
 
 The DSH bundle is on npm at `0.3.0` and contains the filter mode, image/PDF attachment extraction,
-and the composer switch. The Magpie middleware is merged in-tree at `magpie-community/plugins` but
-is not on npm yet; install it from a checkout until the community publishes it. The legacy
-`@shypie_privacy/magpie-privacy-gate` package is published at `0.3.0` and no longer referenced by
-the canonical docs.
+and the composer switch. The Magpie middleware is in-tree at `magpie-community/plugins` but is not on
+npm yet; install it from a checkout (or the `0.4.0` branch in PR #1111) until the community publishes
+it. This repository also mirrors the `0.4.0` source at `plugins/magpie-privacy-gate`; the npm legacy
+package is still `0.3.0`.
 
 1. Install the Magpie middleware from the community checkout:
    `git clone https://github.com/magpie-community/plugins`, then
-   `magpie plugin add <clone>/packages/privacy-gate` (replace `<clone>` with the clone path). After the
+   `magpie plugin add <clone>/packages/privacy-gate` (replace `<clone>` with the clone path), or add
+   `plugins/magpie-privacy-gate` from this repository to review the in-tree mirror. After the
    community npm publish: `magpie plugin add @magpie-community/middleware-privacy-gate`.
 2. Install the DSH bundle — `dsh plugin --profile <name> add @shypie_privacy/dsh-privacy-gate`
    installs `0.3.0`, including filter mode and PDF attachment extraction. Use the checkout
    (`dsh plugin --profile <name> add "$repo/plugins/dsh-privacy-gate"`) for an unreleased local build.
 3. In Magpie, enable masking under **Settings → Privacy** (text half of the combo).
-4. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
+4. Open **Settings → Plugins → Installed → ShyPie Filter** (or the **ShyPie protection** card on the
+   Agents page) and choose which agents ShyPie protects. Every agent is protected by default; a
+   disabled agent bypasses the gate entirely.
+5. Start a **new** DSH session and run the checks in [docs/install.md](docs/install.md#verify).
 
 Both plugins are reversible; no profile file is edited by hand. The install names are
 `@magpie-community/middleware-privacy-gate` and `@shypie_privacy/dsh-privacy-gate`;
@@ -174,7 +177,7 @@ Measured on the reference machine (Windows 11, Node 24, no network):
 | `pii-core` | 61 tests, 60 pass (1 platform skip); 50,125-char doc with 2,133 hits redacts in 11.5 ms; 300k-digit run 40 ms |
 | `local-extract` | 49/49; text PDF, Office, local OCR, and all documented block reasons |
 | `dsh-privacy-gate` | 153/153; activation check registers 3 listeners, 1 guard, 5 tools; attached-image OCR and PDF/file extraction are covered; end-to-end image OCR against real `winrt-ocr` takes about 2.5 s |
-| `packages/privacy-gate` (in-tree, upstream) | 67/67 at `0.3.1` with `bun test`; `bun scripts/check.mjs` validates the merged registry. **Not part of this repository** — it lives in magpie-community/plugins and is not run by `tests/run-all.mjs` |
+| `plugins/magpie-privacy-gate` (mirror) | 72/72 canonical middleware cases with `npm test`; the canonical in-tree `0.4.0` branch adds 4 page/policy checks (76 total) and `bun scripts/check.mjs` validates the registry. The canonical package lives in magpie-community/plugins and is not run by `tests/run-all.mjs` |
 | `e2e` | 11/11 — synthetic invoice → local text → placeholders → gateway → mock vendor, with zero plaintext on the wire |
 
 The end-to-end suite uses only synthetic fixtures generated at test time. No real document, invoice,
@@ -195,7 +198,7 @@ packages/
   local-extract/          local-only PDF / Office / OCR to text
 plugins/
   dsh-privacy-gate/       DeepSeek Harness bundle
-  magpie-privacy-gate/    legacy Magpie mirror (canonical: magpie-community/plugins/packages/privacy-gate)
+  magpie-privacy-gate/    Magpie middleware mirror at 0.4.0 (canonical: magpie-community/plugins/packages/privacy-gate)
 marketplace/              submission files; Magpie PR #685 merged, DSH catalog PR #12308 merged
 assets/brand/shypie/      selected icon package (SVG, PNG, favicon, platform exports)
 config/                   example Magpie middleware options
@@ -212,17 +215,20 @@ LICENSE                   MIT
 - [Publish](docs/publish.md) — npm release order and the Magpie / DSH marketplace listings
 - [Research](docs/research/) — evidence notes, measurements and the [security review](docs/research/security-review.md)
 - Component READMEs: [pii-core](packages/pii-core/README.md), [local-extract](packages/local-extract/README.md),
-  [DSH gate](plugins/dsh-privacy-gate/README.md), [Magpie gate](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate/README.md)
+  [DSH gate](plugins/dsh-privacy-gate/README.md), [Magpie gate (own mirror)](plugins/magpie-privacy-gate/README.md), [canonical package](https://github.com/magpie-community/plugins/tree/main/packages/privacy-gate)
 
 ## Status
 
 Reference implementation, tested on one Windows machine. **Published: all four `@shypie_privacy`
 packages at `0.3.0`** — `pii-core`, `local-extract`, `dsh-privacy-gate`, legacy `magpie-privacy-gate`.
-The merged Magpie middleware upstream is now **`0.3.1`** in-tree (`d34785a`, PRs #798 and #838); the
-community npm package is not published yet, so install it from a checkout. The DSH catalog
+The Magpie middleware upstream is in-tree at **`0.4.0`** in review
+([PR #1111](https://github.com/magpie-community/plugins/pull/1111)): per-agent controls, a page, an
+Agents-page panel and an agent-row action. This repository mirrors that source at
+`plugins/magpie-privacy-gate@0.4.0`; the community npm package is not published yet, so install the
+canonical package from a checkout. The DSH catalog
 [PR #12308](https://github.com/awesome-dsh-plugin/awesome-dsh-plugin/pull/12308) is merged, and the
 Magpie registry entry is merged. The legacy `@shypie_privacy/magpie-privacy-gate` npm package is
-retired but not yet deprecated on npm. The guide-MIME issue
+still `0.3.0` and retired in docs but not yet deprecated on npm. The guide-MIME issue
 ([#795](https://github.com/magpie-community/plugins/issues/795)) is **closed**, fixed by `0.3.1`.
 Tag `v0.3.0` is pushed; the GitHub release can be created from it. The **live wiring** was exercised manually on
 2026-11-03: DSH 0.2.1-rc.5 headless with the bundle installed from npm, two-turn DeepSeek and
